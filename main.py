@@ -1,151 +1,467 @@
+import os
 import time
 import telepot
 from telepot.loop import MessageLoop
-from telepot.namedtuple import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from telepot.namedtuple import InlineKeyboardMarkup, InlineKeyboardButton
 
-# ضع توكن البوت الخاص بك هنا
-TOKEN = "YOUR_BOT_TOKEN_HERE"
+# =========================================================
+# الإعدادات
+# =========================================================
 
-# قاعدة بيانات مؤقتة لتخزين بيانات المستخدمين والرحلات النشطة
+TOKEN = os.getenv("BOT_TOKEN")
+
+if not TOKEN:
+    raise RuntimeError(
+        "BOT_TOKEN غير موجود. أضفه في GitHub Secrets."
+    )
+
+bot = telepot.Bot(TOKEN)
+
+# تخزين مؤقت للطلبات
 user_data = {}
+
+# =========================================================
+# القوائم
+# =========================================================
+
+def main_menu():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="🚗 طلب مشوار فوري",
+                callback_data="request_ride"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="💰 حاسبة الأسعار",
+                callback_data="calc_price"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="📋 رحلاتي",
+                callback_data="my_rides"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="📞 خدمة العملاء",
+                callback_data="support"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="📋 قوانين القروب",
+                callback_data="rules"
+            )
+        ]
+    ])
+
+
+def car_menu():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="🚗 اقتصادية",
+                callback_data="car_eco"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="🚙 عائلية SUV",
+                callback_data="car_family"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="✨ VIP",
+                callback_data="car_vip"
+            )
+        ]
+    ])
+
+
+# =========================================================
+# الترحيب
+# =========================================================
+
+def send_start(chat_id):
+    user_data[chat_id] = {
+        "step": "MENU",
+        "rides": []
+    }
+
+    text = (
+        "🚘 *مشاوير جدة وضواحيها*\n\n"
+        "أهلاً بك 👋\n"
+        "بوابتك لتنظيم مشاويرك بسهولة وسرعة.\n\n"
+        "📍 جدة • مكة • الطائف • وضواحيها\n"
+        "🚗 خدمة المشاوير على مدار الساعة\n\n"
+        "اختر من القائمة:"
+    )
+
+    bot.sendMessage(
+        chat_id,
+        text,
+        reply_markup=main_menu(),
+        parse_mode="Markdown"
+    )
+
+
+# =========================================================
+# معالجة الرسائل
+# =========================================================
 
 def handle(msg):
     try:
         content_type, chat_type, chat_id = telepot.glance(msg)
-        
-        # 1. التعامل مع الرسائل النصية
-        if content_type == 'text':
-            text = msg['text']
-            
-            if text == '/start':
-                user_data[chat_id] = {'step': 'MENU'}
-                markup = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🚗 طلب مشوار فوري", callback_data='request_ride')],
-                    [InlineKeyboardButton(text="💰 حاسبة الأسعار التقديرية", callback_data='calc_price')],
-                    [InlineKeyboardButton(text="📋 رحلاتي السابقة", callback_data='my_rides')],
-                    [InlineKeyboardButton(text="📞 خدمة العملاء والدعم", callback_data='support')]
-                ])
+
+        # -------------------------------------------------
+        # الرسائل النصية
+        # -------------------------------------------------
+
+        if content_type == "text":
+
+            text = msg.get("text", "").strip()
+
+            # /start
+            if text == "/start":
+                send_start(chat_id)
+                return
+
+            # /help
+            if text == "/help":
                 bot.sendMessage(
                     chat_id,
-                    "أهلاً بك في **بوابتك لتنقلات مريحة في جدة** 🌴🚗\n"
-                    "نحن نخدم جميع أحياء عروس البحر الأحمر على مدار الساعة.\n\n"
-                    "اختر ما يناسبك من القائمة أدناه:",
-                    reply_markup=markup,
+                    "🛠 *طريقة الاستخدام*\n\n"
+                    "/start — القائمة الرئيسية\n"
+                    "/cancel — إلغاء الطلب الحالي\n"
+                    "/help — المساعدة\n\n"
+                    "لطلب مشوار اضغط 🚗 طلب مشوار فوري.",
+                    parse_mode="Markdown"
+                )
+                return
+
+            # /cancel
+            if text == "/cancel":
+                user_data[chat_id] = {
+                    "step": "MENU",
+                    "rides": []
+                }
+
+                bot.sendMessage(
+                    chat_id,
+                    "❌ تم إلغاء العملية الحالية.\n\n"
+                    "يمكنك البدء من جديد من القائمة الرئيسية.",
+                    reply_markup=main_menu()
+                )
+                return
+
+            # إنشاء بيانات المستخدم إذا لم تكن موجودة
+            if chat_id not in user_data:
+                user_data[chat_id] = {
+                    "step": "MENU",
+                    "rides": []
+                }
+
+            state = user_data[chat_id].get("step")
+
+            # -------------------------------------------------
+            # انتظار موقع الانطلاق
+            # -------------------------------------------------
+
+            if state == "WAITING_PICKUP":
+
+                if len(text) < 2:
+                    bot.sendMessage(
+                        chat_id,
+                        "⚠️ اكتب موقع الانطلاق بشكل أوضح."
+                    )
+                    return
+
+                user_data[chat_id]["pickup"] = text
+                user_data[chat_id]["step"] = "WAITING_DESTINATION"
+
+                bot.sendMessage(
+                    chat_id,
+                    "📍 تم تسجيل موقع الانطلاق:\n"
+                    f"*{text}*\n\n"
+                    "🏁 الآن اكتب الوجهة النهائية:",
+                    parse_mode="Markdown"
+                )
+                return
+
+            # -------------------------------------------------
+            # انتظار الوجهة
+            # -------------------------------------------------
+
+            if state == "WAITING_DESTINATION":
+
+                if len(text) < 2:
+                    bot.sendMessage(
+                        chat_id,
+                        "⚠️ اكتب اسم الوجهة بشكل أوضح."
+                    )
+                    return
+
+                user_data[chat_id]["destination"] = text
+                user_data[chat_id]["step"] = "SELECT_CAR"
+
+                pickup = user_data[chat_id]["pickup"]
+
+                bot.sendMessage(
+                    chat_id,
+                    "🚗 *تفاصيل المشوار*\n\n"
+                    f"📍 من: *{pickup}*\n"
+                    f"🏁 إلى: *{text}*\n\n"
+                    "اختر فئة السيارة:",
+                    reply_markup=car_menu(),
+                    parse_mode="Markdown"
+                )
+                return
+
+            # -------------------------------------------------
+            # أي رسالة غير معروفة
+            # -------------------------------------------------
+
+            bot.sendMessage(
+                chat_id,
+                "👋 هلا بك.\n\n"
+                "استخدم /start لفتح القائمة الرئيسية."
+            )
+
+        # -------------------------------------------------
+        # الأزرار
+        # -------------------------------------------------
+
+        elif content_type == "callback_query":
+
+            query_id, from_id, query_data = telepot.glance(
+                msg,
+                long=True
+            )
+
+            # تأكيد الضغط
+            bot.answerCallbackQuery(query_id)
+
+            # إنشاء بيانات المستخدم
+            if from_id not in user_data:
+                user_data[from_id] = {
+                    "step": "MENU",
+                    "rides": []
+                }
+
+            # -------------------------------------------------
+            # طلب مشوار
+            # -------------------------------------------------
+
+            if query_data == "request_ride":
+
+                user_data[from_id]["step"] = "WAITING_PICKUP"
+
+                bot.sendMessage(
+                    from_id,
+                    "🚗 *طلب مشوار جديد*\n\n"
+                    "📍 اكتب موقع الانطلاق.\n\n"
+                    "مثال:\n"
+                    "الصفا\n"
+                    "أو\n"
+                    "حي الزهراء"
+                    "أو\n"
+                    "مطار الملك عبدالعزيز",
                     parse_mode="Markdown"
                 )
 
-            elif text == '/help':
-                help_msg = (
-                    "🛠 **دليل الاستخدام:**\n\n"
-                    "/start - العودة للقائمة الرئيسية\n"
-                    "/cancel - إلغاء الطلب الحالي\n"
-                    "/help - عرض المساعدة\n\n"
-                    "للبدء في حجز سيارة، اضغط على /start واقصد خيار طلب مشوار."
+            # -------------------------------------------------
+            # حاسبة الأسعار
+            # -------------------------------------------------
+
+            elif query_data == "calc_price":
+
+                text = (
+                    "💰 *حاسبة الأسعار التقديرية*\n\n"
+                    "🚗 مشاوير داخل الأحياء:\n"
+                    "25 — 40 ريال تقريباً\n\n"
+                    "🚘 مشاوير متوسطة داخل جدة:\n"
+                    "40 — 70 ريال تقريباً\n\n"
+                    "🛣️ مشاوير بعيدة داخل جدة:\n"
+                    "70 — 120 ريال تقريباً\n\n"
+                    "✈️ المطار:\n"
+                    "السعر يحدد حسب موقع الانطلاق.\n\n"
+                    "⚠️ الأسعار تقديرية وقد تختلف حسب "
+                    "المسافة والوقت والطلب."
                 )
-                bot.sendMessage(chat_id, help_msg, parse_mode="Markdown")
 
-            elif text == '/cancel':
-                user_data[chat_id] = {'step': 'MENU'}
-                bot.sendMessage(chat_id, "❌ تم إلغاء العملية الحالية. يمكنك البدء من جديد عبر /start")
+                bot.sendMessage(
+                    from_id,
+                    text,
+                    reply_markup=main_menu(),
+                    parse_mode="Markdown"
+                )
 
-            else:
-                # التحقق من حالة المستخدم الخطواتية
-                current_state = user_data.get(chat_id, {}).get('step')
+            # -------------------------------------------------
+            # الرحلات السابقة
+            # -------------------------------------------------
 
-                if current_state == 'WAITING_PICKUP':
-                    user_data[chat_id]['pickup'] = text
-                    user_data[chat_id]['step'] = 'WAITING_DESTINATION'
-                    bot.sendMessage(chat_id, "📍 ممتاز. الآن أكتب **اسم الوجهة النهائية أو الحي المتجه إليه**:")
+            elif query_data == "my_rides":
 
-                elif current_state == 'WAITING_DESTINATION':
-                    user_data[chat_id]['destination'] = text
-                    user_data[chat_id]['step'] = 'SELECT_CAR_TYPE'
-                    
-                    # اختيار نوع السيارة
-                    car_markup = InlineKeyboardMarkup(inline_keyboard=[
-                        [InlineKeyboardButton(text="🚗 سيارة اقتصادية (صغيرة)", callback_data='car_eco')],
-                        [InlineKeyboardButton(text="🚙 سيارة عائلية (SUV)", callback_data='car_family')],
-                        [InlineKeyboardButton(text="✨ سيارة فاخرة VIP", callback_data='car_vip')]
-                    ])
+                rides = user_data[from_id].get(
+                    "rides",
+                    []
+                )
+
+                if not rides:
                     bot.sendMessage(
-                        chat_id,
-                        f"📍 **الانطلاق:** {user_data[chat_id]['pickup']}\n"
-                        f"🏁 **الوصول:** {text}\n\n"
-                        "اختر فئة السيارة المناسبة لرحلتك:",
-                        reply_markup=car_markup,
-                        parse_mode="Markdown"
+                        from_id,
+                        "📋 لا توجد رحلات مسجلة حتى الآن.",
+                        reply_markup=main_menu()
                     )
-                else:
-                    bot.sendMessage(chat_id, "عذراً، لم أفهم رسالتك. استخدم /start للبدء من جديد.")
+                    return
 
-        # 2. التعامل مع الأزرار التفاعلية (Inline Keyboard)
-        elif content_type == 'callback_query':
-            query_id, chat_id, query_data = telepot.glance(msg, long=True)
-            bot.answerCallbackQuery(query_id)
+                text = "📋 *رحلاتك السابقة*\n\n"
 
-            if chat_id not in user_data:
-                user_data[chat_id] = {'step': 'MENU'}
+                for index, ride in enumerate(
+                    rides[-10:],
+                    start=1
+                ):
+                    text += (
+                        f"{index}️⃣ "
+                        f"{ride['pickup']} → "
+                        f"{ride['destination']}\n"
+                        f"🚙 {ride['car']}\n\n"
+                    )
 
-            if query_data == 'request_ride':
-                user_data[chat_id]['step'] = 'WAITING_PICKUP'
-                bot.sendMessage(chat_id, "📍 أرجو إرسال **موقع الانطلاق الحالي** (اسم الحي، الشارع، أو معلم مشهور في جدة):")
-
-            elif query_data == 'calc_price':
-                calc_text = (
-                    "🧮 **حاسبة الأسعار التقديرية (داخل جدة):**\n\n"
-                    "• المسافات القريبة (داخل نفس الحي): 25 - 35 ريال\n"
-                    "• وسط جدة إلى الشمال (مثلاً التحلية إلى الروضة/المروة): 45 - 65 ريال\n"
-                    "• جنوب جدة أو الكورنيش الشمالي: 60 - 90 ريال\n"
-                    "• مطار الملك عبدالعزيز الدولي: يُحدد حسب موقع انطلاقك.\n\n"
-                    "💡 الأسعار قابلة للتغيير البسيط بناءً على أوقات الذروة."
+                bot.sendMessage(
+                    from_id,
+                    text,
+                    reply_markup=main_menu(),
+                    parse_mode="Markdown"
                 )
-                bot.sendMessage(chat_id, calc_text, parse_mode="Markdown")
 
-            elif query_data == 'my_rides':
-                bot.sendMessage(chat_id, "📋 ليس لديك رحلات مسجلة حالياً في هذا السجل المؤقت.")
+            # -------------------------------------------------
+            # الدعم
+            # -------------------------------------------------
 
-            elif query_data == 'support':
-                support_text = (
-                    "📞 **فريق خدمة العملاء - جدة رایدز**\n\n"
-                    "للاستفسارات العاجلة، المفقودات، أو الشكاوى:\n"
-                    "• واتساب الدعم الفني: 966500000000+\n"
-                    "• البريد الإلكتروني: support@jeddahrides.com\n\n"
-                    "نحن بخدمتكم على مدار 24 ساعة."
+            elif query_data == "support":
+
+                bot.sendMessage(
+                    from_id,
+                    "📞 *خدمة العملاء*\n\n"
+                    "للاستفسارات أو المشاكل المتعلقة بالمشاوير، "
+                    "تواصل مع إدارة القروب.\n\n"
+                    "👤 الإدارة:\n"
+                    "@klodi500",
+                    reply_markup=main_menu(),
+                    parse_mode="Markdown"
                 )
-                bot.sendMessage(chat_id, support_text, parse_mode="Markdown")
 
-            elif query_data.startswith('car_'):
+            # -------------------------------------------------
+            # القوانين
+            # -------------------------------------------------
+
+            elif query_data == "rules":
+
+                rules = (
+                    "📋 *قوانين مشاوير جدة وضواحيها*\n\n"
+                    "1️⃣ القروب مخصص للمشاوير والنقل.\n\n"
+                    "2️⃣ يمنع السب والإساءة.\n\n"
+                    "3️⃣ يمنع نشر الروابط والإعلانات.\n\n"
+                    "4️⃣ السعر والتفاهم بين العميل والكابتن.\n\n"
+                    "5️⃣ يمنع إزعاج الأعضاء أو إرسال محتوى غير مناسب.\n\n"
+                    "6️⃣ الالتزام بالمواعيد واحترام الطرف الآخر.\n\n"
+                    "🚘 نتمنى للجميع مشاوير موفقة."
+                )
+
+                bot.sendMessage(
+                    from_id,
+                    rules,
+                    reply_markup=main_menu(),
+                    parse_mode="Markdown"
+                )
+
+            # -------------------------------------------------
+            # اختيار السيارة
+            # -------------------------------------------------
+
+            elif query_data.startswith("car_"):
+
                 car_types = {
-                    'car_eco': 'اقتصادية (صغيرة)',
-                    'car_family': 'عائلية (SUV)',
-                    'car_vip': 'فاخرة VIP'
+                    "car_eco": "🚗 اقتصادية",
+                    "car_family": "🚙 عائلية SUV",
+                    "car_vip": "✨ VIP"
                 }
-                selected_car = car_types.get(query_data, 'اقتصادية')
-                ride_info = user_data.get(chat_id, {})
-                
-                pickup = ride_info.get('pickup', 'غير محدد')
-                destination = ride_info.get('destination', 'غير محدد')
 
-                # تأكيد نهائي للطلب
-                confirmation_msg = (
-                    "🎉 **تم تأكيد تفاصيل طلبك بنجاح!**\n\n"
-                    f"📍 **من:** {pickup}\n"
-                    f"🏁 **إلى:** {destination}\n"
-                    f"🚙 **الفئة:** {selected_car}\n\n"
-                    "⏳ **جاري الآن البحث عن أقرب كابتن متاح في جدة لتوصيلك...**\n"
-                    "سيتواصل معك الكابتن قريباً."
+                selected_car = car_types.get(
+                    query_data,
+                    "🚗 اقتصادية"
                 )
-                bot.sendMessage(chat_id, confirmation_msg, parse_mode="Markdown")
-                user_data[chat_id] = {'step': 'MENU'}
+
+                ride = user_data[from_id]
+
+                pickup = ride.get(
+                    "pickup",
+                    "غير محدد"
+                )
+
+                destination = ride.get(
+                    "destination",
+                    "غير محدد"
+                )
+
+                ride_record = {
+                    "pickup": pickup,
+                    "destination": destination,
+                    "car": selected_car
+                }
+
+                if "rides" not in user_data[from_id]:
+                    user_data[from_id]["rides"] = []
+
+                user_data[from_id]["rides"].append(
+                    ride_record
+                )
+
+                user_data[from_id]["step"] = "MENU"
+
+                bot.sendMessage(
+                    from_id,
+                    "✅ *تم تسجيل طلب المشوار*\n\n"
+                    f"📍 من: *{pickup}*\n"
+                    f"🏁 إلى: *{destination}*\n"
+                    f"🚙 السيارة: *{selected_car}*\n\n"
+                    "⏳ جاري البحث عن كابتن مناسب...\n\n"
+                    "🚘 سيتم التواصل معك عند توفر كابتن.",
+                    reply_markup=main_menu(),
+                    parse_mode="Markdown"
+                )
 
     except Exception as e:
-        print(f"خطأ في المعالجة: {e}")
+        print(
+            "حدث خطأ أثناء معالجة الرسالة:",
+            repr(e)
+        )
 
-# تهيئة وتشغيل البوت
-bot = telepot.Bot(TOKEN)
-MessageLoop(bot, handle).run_as_thread()
-print('Jeddah Rides Bot (Full Featured) يعمل الآن بنجاح...')
 
-# حلقة الاستمرار لكي يظل السيرفر نشطاً على Render
-while True:
-    time.sleep(10)
+# =========================================================
+# التشغيل
+# =========================================================
+
+def main():
+
+    print("====================================")
+    print("🚘 مشاوير جدة وضواحيها")
+    print("🤖 البوت بدأ التشغيل")
+    print("====================================")
+
+    MessageLoop(
+        bot,
+        handle
+    ).run_as_thread()
+
+    while True:
+        time.sleep(10)
+
+
+if __name__ == "__main__":
+    main()
