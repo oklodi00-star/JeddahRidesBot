@@ -117,7 +117,7 @@ def init_db():
 
 
 # ============================================================
-# USER DATABASE
+# USERS
 # ============================================================
 
 def save_user(user):
@@ -314,7 +314,7 @@ RULES = f"""
 
 
 # ============================================================
-# START / HELP / RULES
+# COMMANDS
 # ============================================================
 
 async def start(update, context):
@@ -348,7 +348,8 @@ async def help_command(update, context):
         "🚗 لطلب مشوار اكتب مثلًا:\n"
         "ابغى مشوار من الحمدانية إلى المطار\n\n"
         "👨‍✈️ للتسجيل ككابتن اكتب:\n"
-        "كابتن وجاهز"
+        "كابتن وجاهز\n"
+        "أو اكتب: جاهز"
     )
 
 
@@ -390,7 +391,7 @@ async def welcome(update, context):
             "🚗 عندك مشوار؟\n"
             "اكتب طلبك مباشرة.\n\n"
             "👨‍✈️ كابتن؟\n"
-            "اكتب «كابتن وجاهز».\n\n"
+            "اكتب «كابتن وجاهز» أو «جاهز».\n\n"
             "📋 اضغط القوانين لمعرفة النظام.",
             parse_mode=ParseMode.HTML,
             reply_markup=keyboard,
@@ -398,10 +399,11 @@ async def welcome(update, context):
 
 
 # ============================================================
-# GREETINGS
+# CHAT RESPONSES
 # ============================================================
 
-GREETINGS = {
+CHAT_RESPONSES = {
+
     "السلام عليكم": [
         "وعليكم السلام ورحمة الله وبركاته 🌹🚗",
         "وعليكم السلام يا هلا والله 👋",
@@ -416,22 +418,74 @@ GREETINGS = {
 
     "هلا والله": [
         "هلا والله وغلا 🌹",
-        "يا مرحبا 👋",
+        "يا مرحبا 👋🚗",
     ],
 
     "اهلا": [
         "أهلين وسهلين 🌹",
-        "يا مرحبا 👋🚗",
+        "يا مرحبا 👋",
+    ],
+
+    "اهلين": [
+        "أهلين فيك 🌹",
+        "يا مرحبا والله 👋🚗",
     ],
 
     "صباح الخير": [
         "صباح النور والرزق 🌹🚗",
         "صباح الخير يا أهل المشاوير ☀️",
+        "صباحكم رزق وتوفيق 🤲",
+    ],
+
+    "صباحكم خير": [
+        "صباح النور والخير 🌹",
+        "الله يجعل صباحكم رزق وبركة 🤲",
     ],
 
     "مساء الخير": [
         "مساء النور 🌹🚗",
         "مساء الخير يا أهل المشاوير 🌙",
+        "مساءكم طيب يا جماعة الخير ❤️",
+    ],
+
+    "مساءكم خير": [
+        "مساء النور والخير 🌙",
+        "الله يمسيكم بالخير والعافية 🌹",
+    ],
+
+    "كيفكم": [
+        "بخير ونعمة دامك بخير 🌹🚗",
+        "تمام يا الغالي، الله يسعدك 😎",
+        "بخير الحمدلله، وش علومك؟ 🚘",
+        "تمامين، القروب منور بأهله 😂🌹",
+    ],
+
+    "شلونكم": [
+        "بخير ونعمة يا بعدهم 🌹",
+        "تمام الحمدلله، وش علومك؟ 😎",
+        "بخير دامكم بخير 🚗",
+    ],
+
+    "كيف حالكم": [
+        "بخير الحمدلله 🌹",
+        "تمامين، الله يسعدك 🚘",
+    ],
+
+    "وش اخباركم": [
+        "أخبارنا طيبة دامك موجود 😂🌹",
+        "كلها خير ولله الحمد 🚗",
+        "تمام التمام 😎",
+    ],
+
+    "وش علومكم": [
+        "علومنا طيبة، وش علومك أنت؟ 😎",
+        "بخير ولله الحمد 🌹",
+        "علومنا مشاوير ورزق 😂🚗",
+    ],
+
+    "وش الاخبار": [
+        "كلها طيبة ولله الحمد 🌹",
+        "الأخبار زينة دامك معنا 🚗",
     ],
 
     "شكرا": [
@@ -440,29 +494,144 @@ GREETINGS = {
         "تستاهل كل خير ❤️",
     ],
 
-    "يعطيك العافية": [
+    "مشكور": [
+        "العفو يا الغالي 🌹",
+        "حاضرين وما سوينا إلا الواجب 🚗",
+    ],
+
+    "يعطيك العافيه": [
         "الله يعافيك ويسعدك 🌹",
         "وياك يا رب 🚗",
+    ],
+
+    "الله يعطيك العافيه": [
+        "الله يعافيك ويجزاك خير 🌹",
+        "وياك يا رب ❤️",
+    ],
+
+    "وينكم": [
+        "موجودين يا الغالي 😂🚗",
+        "هنا يا أهل المشاوير 👀",
+    ],
+
+    "احد موجود": [
+        "موجودين، تفضل 🚗",
+        "موجودين يا الغالي 👋",
+    ],
+
+    "وين القروب": [
+        "هذا هو القروب يا حلو 😂🚗",
     ],
 }
 
 
-async def handle_greeting(message):
-    text = normalize_arabic(
+def get_chat_response(text):
+
+    normalized = normalize_arabic(text)
+
+    # نبحث عن العبارات الأطول أولًا
+    phrases = sorted(
+        CHAT_RESPONSES.keys(),
+        key=lambda x: len(normalize_arabic(x)),
+        reverse=True,
+    )
+
+    for phrase in phrases:
+
+        if normalize_arabic(phrase) in normalized:
+
+            # اختيار الرد الأول بشكل ثابت
+            return CHAT_RESPONSES[phrase][0]
+
+    return None
+
+
+async def handle_chat_response(message):
+
+    response = get_chat_response(
         message.text or ""
     )
 
-    for phrase, responses in GREETINGS.items():
+    if not response:
+        return False
 
-        if normalize_arabic(phrase) in text:
+    await message.reply_text(response)
 
-            await message.reply_text(
-                responses[0]
-            )
+    return True
 
-            return True
 
-    return False
+# ============================================================
+# "خاص" PROTECTION
+# ============================================================
+
+PRIVATE_WORDS = {
+    "خاص",
+    "الخاص",
+    "بالخاص",
+    "عالخاص",
+    "على الخاص",
+    "عال خاص",
+    "بال خاص",
+}
+
+
+def is_private_word(text):
+
+    normalized = normalize_arabic(text)
+
+    return normalized.strip() in {
+        normalize_arabic(word)
+        for word in PRIVATE_WORDS
+    }
+
+
+async def handle_private_word(
+    message,
+    context,
+):
+
+    user = message.from_user
+
+    if not user:
+        return False
+
+    # المالك والإدارة مستثنون
+    if is_owner(user):
+        return False
+
+    if await is_admin(
+        type(
+            "Obj",
+            (),
+            {
+                "effective_user": user,
+            }
+        )(),
+        context,
+    ):
+        return False
+
+    if not is_private_word(
+        message.text or ""
+    ):
+        return False
+
+    try:
+        await message.delete()
+    except Exception as error:
+        logger.warning(
+            "Could not delete private word message: %s",
+            error,
+        )
+
+    await message.reply_text(
+        f"⚠️ {display_user(user)}\n\n"
+        "ممنوع كتابة «خاص» يا حلو 🌹\n"
+        "إذا أنت كابتن وجاهز للمشوار اكتب «جاهز» 👨‍✈️🚗",
+        parse_mode=ParseMode.HTML,
+    )
+
+    return True
 
 
 # ============================================================
@@ -470,6 +639,7 @@ async def handle_greeting(message):
 # ============================================================
 
 DRIVER_READY_PHRASES = [
+    "جاهز",
     "كابتن وجاهز",
     "كابتن جاهز",
     "انا كابتن",
@@ -484,11 +654,12 @@ DRIVER_READY_PHRASES = [
 
 
 def is_driver_ready(text):
-    normalized = normalize_arabic(text)
+
+    normalized = normalize_arabic(text).strip()
 
     for phrase in DRIVER_READY_PHRASES:
 
-        if normalize_arabic(phrase) in normalized:
+        if normalized == normalize_arabic(phrase):
             return True
 
     return False
@@ -988,11 +1159,10 @@ def violation_reason(text):
 
     normalized = normalize_arabic(text)
 
-    if normalized.strip() in (
-        "خاص",
-        "الخاص",
-    ):
-        return "كتابة كلمة «خاص»"
+    # كلمة "خاص" لها نظام منفصل
+    # ولا تعتبر مخالفة
+    if is_private_word(text):
+        return None
 
     for word in BAD_WORDS:
 
@@ -1060,6 +1230,7 @@ async def handle_violation(
     if count >= 4:
 
         try:
+
             await context.bot.ban_chat_member(
                 GROUP_ID,
                 user.id,
@@ -1074,6 +1245,7 @@ async def handle_violation(
             )
 
         except Exception as error:
+
             logger.error(
                 "Ban error: %s",
                 error,
@@ -1110,6 +1282,7 @@ async def handle_violation(
             )
 
         except Exception as error:
+
             logger.error(
                 "Mute error: %s",
                 error,
@@ -1173,7 +1346,7 @@ async def handle_location(
 
         await message.reply_text(
             "📍 هذا الإعلان مخصص للكباتن فقط 👨‍✈️\n\n"
-            "إذا أنت كابتن، اكتب «كابتن وجاهز» أولًا."
+            "إذا أنت كابتن، اكتب «جاهز» أولًا."
         )
 
         return True
@@ -1249,7 +1422,10 @@ async def message_handler(
 
     save_user(user)
 
+    # ========================================================
     # حماية الروابط والتحويلات
+    # ========================================================
+
     if await protect_message(
         update,
         context,
@@ -1261,7 +1437,48 @@ async def message_handler(
     if not text:
         return
 
+    # ========================================================
+    # منع كلمة "خاص"
+    # ========================================================
+
+    if await handle_private_word(
+        message,
+        context,
+    ):
+        return
+
+    # ========================================================
+    # الكابتن
+    # ========================================================
+
+    if await handle_driver_ready(
+        message
+    ):
+        return
+
+    # ========================================================
+    # الموقع
+    # ========================================================
+
+    if await handle_location(
+        update,
+        context,
+    ):
+        return
+
+    # ========================================================
+    # الردود العامة
+    # ========================================================
+
+    if await handle_chat_response(
+        message
+    ):
+        return
+
+    # ========================================================
     # المخالفات
+    # ========================================================
+
     reason = violation_reason(text)
 
     if reason:
@@ -1274,26 +1491,10 @@ async def message_handler(
 
         return
 
-    # الكابتن
-    if await handle_driver_ready(
-        message
-    ):
-        return
+    # ========================================================
+    # المشاوير
+    # ========================================================
 
-    # الموقع
-    if await handle_location(
-        update,
-        context,
-    ):
-        return
-
-    # التحيات
-    if await handle_greeting(
-        message
-    ):
-        return
-
-    # المشوار
     if looks_like_trip(text):
 
         await create_trip(
@@ -1305,7 +1506,7 @@ async def message_handler(
 
 
 # ============================================================
-# CALLBACK
+# CALLBACK HANDLER
 # ============================================================
 
 async def callback_handler(
@@ -1343,7 +1544,7 @@ async def callback_handler(
 
 
 # ============================================================
-# ERROR
+# ERROR HANDLER
 # ============================================================
 
 async def error_handler(
@@ -1441,6 +1642,10 @@ def main():
         allowed_updates=Update.ALL_TYPES
     )
 
+
+# ============================================================
+# RUN
+# ============================================================
 
 if __name__ == "__main__":
     main()
