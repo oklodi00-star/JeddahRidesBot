@@ -235,6 +235,64 @@ def mark_customer(user):
         con.commit()
 
 
+# ============================================================
+# NEW:
+# تحديد صفة العضو بواسطة ID
+# يستخدمها المسؤول عندما يحدد عضوًا آخر
+# ============================================================
+
+def mark_driver_by_id(user_id):
+
+    with db() as con:
+
+        cur = con.cursor()
+
+        cur.execute("""
+            UPDATE users
+            SET is_driver = 1,
+                is_customer = 0
+            WHERE user_id = ?
+        """, (user_id,))
+
+        con.commit()
+
+
+def mark_customer_by_id(user_id):
+
+    with db() as con:
+
+        cur = con.cursor()
+
+        cur.execute("""
+            UPDATE users
+            SET is_customer = 1,
+                is_driver = 0
+            WHERE user_id = ?
+        """, (user_id,))
+
+        con.commit()
+
+
+def get_user_info(user_id):
+
+    with db() as con:
+
+        cur = con.cursor()
+
+        cur.execute("""
+            SELECT
+                user_id,
+                name,
+                username
+            FROM users
+            WHERE user_id = ?
+        """, (user_id,))
+
+        row = cur.fetchone()
+
+    return row
+
+
 def is_driver(user_id):
 
     with db() as con:
@@ -354,6 +412,28 @@ def display_user(user):
 
         return (
             f'<a href="https://t.me/{user.username}">'
+            f"{name}"
+            f"</a>"
+        )
+
+    return f"<b>{name}</b>"
+
+
+def display_saved_user(user_id):
+
+    row = get_user_info(user_id)
+
+    if not row:
+        return "العضو"
+
+    _, name, username = row
+
+    name = html(name or "عضو")
+
+    if username:
+
+        return (
+            f'<a href="https://t.me/{username}">'
             f"{name}"
             f"</a>"
         )
@@ -528,7 +608,7 @@ async def welcome(update, context):
             "اختار صفتك عشان البوت يعرف كيف يخدمك 👇\n\n"
             "🧑🏻‍💼 العميل: يطلب مشوار.\n"
             "🚕 الكابتن: يأخذ المشاوير.\n\n"
-            "تقدر تختار بنفسك من الأزرار 👇",
+            "👑 المسؤول يقدر أيضًا يحدد صفة العضو من نفس الأزرار.",
             parse_mode=ParseMode.HTML,
             reply_markup=keyboard,
         )
@@ -1243,9 +1323,10 @@ async def role_selection_button(update, context):
 
     data = query.data or ""
 
-    user = query.from_user
+    clicked_by = query.from_user
 
-    if not user:
+    if not clicked_by:
+
         await query.answer()
         return
 
@@ -1260,50 +1341,137 @@ async def role_selection_button(update, context):
         await query.answer()
         return
 
-    # أي شخص يضغط زر نفسه فقط
-    if user.id != target_id:
+    # ========================================================
+    # مهم:
+    # العضو نفسه يستطيع اختيار صفته.
+    # المسؤول/المالك يستطيع اختيار صفة أي عضو.
+    # ========================================================
+
+    admin = await is_admin(
+        update,
+        context,
+    )
+
+    if clicked_by.id != target_id and not admin:
 
         await query.answer(
-            "هذا الزر مخصص للعضو الجديد فقط 🙏",
+            "هذا الزر مخصص للعضو الجديد أو للمسؤول فقط 🙏",
             show_alert=True,
         )
 
         return
 
-    save_user(user)
+    # ========================================================
+    # إذا العضو يحدد نفسه
+    # ========================================================
+
+    if clicked_by.id == target_id:
+
+        target_user = clicked_by
+
+        save_user(target_user)
+
+    # ========================================================
+    # إذا المسؤول يحدد عضوًا آخر
+    # ========================================================
+
+    else:
+
+        row = get_user_info(target_id)
+
+        if not row:
+
+            await query.answer(
+                "لم يتم العثور على بيانات العضو.",
+                show_alert=True,
+            )
+
+            return
+
+    # ========================================================
+    # كابتن
+    # ========================================================
 
     if role == "role_driver":
 
-        mark_driver(user)
+        mark_driver_by_id(target_id)
 
         await query.answer(
-            "تم تسجيلك ككابتن 🚕"
+            "تم تسجيل العضو ككابتن 🚕",
+            show_alert=True,
         )
 
+        target_display = display_saved_user(
+            target_id
+        )
+
+        if clicked_by.id == target_id:
+
+            text = (
+                f"🚕 {target_display}\n\n"
+                "تم تسجيلك ككابتن بنجاح ✅\n\n"
+                "إذا شفت مشوار يناسبك اضغط:\n"
+                "🚕 جاهز للمشوار\n\n"
+                "وإذا كنت متواجد في حي معين تقدر تعلن موقعك مرة واحدة يوميًا."
+            )
+
+        else:
+
+            text = (
+                "👑 <b>تم تعديل صفة العضو</b>\n\n"
+                f"👤 العضو: {target_display}\n"
+                "🚕 الصفة: <b>كابتن</b>\n\n"
+                "تم حفظ التعديل بنجاح ✅"
+            )
+
         await query.message.reply_text(
-            f"🚕 {display_user(user)}\n\n"
-            "تم تسجيلك ككابتن بنجاح ✅\n\n"
-            "إذا شفت مشوار يناسبك اضغط:\n"
-            "🚕 جاهز للمشوار\n\n"
-            "وإذا كنت متواجد في حي معين تقدر تعلن موقعك مرة واحدة يوميًا.",
+            text,
             parse_mode=ParseMode.HTML,
         )
 
-    elif role == "role_customer":
+        return
 
-        mark_customer(user)
+    # ========================================================
+    # عميل
+    # ========================================================
+
+    if role == "role_customer":
+
+        mark_customer_by_id(target_id)
 
         await query.answer(
-            "تم تسجيلك كعميل 🧑🏻‍💼"
+            "تم تسجيل العضو كعميل 🧑🏻‍💼",
+            show_alert=True,
         )
 
+        target_display = display_saved_user(
+            target_id
+        )
+
+        if clicked_by.id == target_id:
+
+            text = (
+                f"🧑🏻‍💼 {target_display}\n\n"
+                "أهلاً فيك 🌹\n\n"
+                "لطلب مشوار اكتب مثلًا:\n"
+                "السلام عليكم، ابغى مشوار من الحمدانية إلى المطار 🚘"
+            )
+
+        else:
+
+            text = (
+                "👑 <b>تم تعديل صفة العضو</b>\n\n"
+                f"👤 العضو: {target_display}\n"
+                "🧑🏻‍💼 الصفة: <b>عميل</b>\n\n"
+                "تم حفظ التعديل بنجاح ✅"
+            )
+
         await query.message.reply_text(
-            f"🧑🏻‍💼 {display_user(user)}\n\n"
-            "أهلاً فيك 🌹\n\n"
-            "لطلب مشوار اكتب مثلًا:\n"
-            "السلام عليكم، ابغى مشوار من الحمدانية إلى المطار 🚘",
+            text,
             parse_mode=ParseMode.HTML,
         )
+
+        return
 
 
 # ============================================================
@@ -1524,7 +1692,6 @@ def violation_reason(text):
 
     stripped = normalized.strip()
 
-    # كلمة خاص فقط تعتبر مخالفة
     if stripped in (
         "خاص",
         "الخاص",
@@ -1532,22 +1699,18 @@ def violation_reason(text):
 
         return "خاص"
 
-    # الإساءة
     for word in BAD_WORDS:
 
         if normalize_arabic(word) in normalized:
 
             return "إساءة أو سب"
 
-    # كلام غير مناسب
     for phrase in INAPPROPRIATE:
 
         if normalize_arabic(phrase) in normalized:
 
             return "كلام غير مناسب"
 
-    # الأسعار في العام
-    # لا نحسب أرقام عادية إلا إذا ارتبطت بكلمات سعر
     if re.search(
         r"(?:السعر|بكم|كم|ريال|الاجره|الاجرة|تكلفه|التكلفة|المبلغ)\s*\d+",
         normalized,
@@ -1606,7 +1769,6 @@ async def handle_violation(
             parse_mode=ParseMode.HTML,
         )
 
-        # كلمة خاص مخالفة وتدخل العداد
         reason = "كتابة كلمة خاص"
 
     save_user(user)
@@ -1880,8 +2042,6 @@ async def handle_chat_response(
     if not response:
         return False
 
-    # إذا الرسالة تحية + طلب مشوار
-    # لا نرسل تحية منفصلة لأن الطلب أهم
     if looks_like_trip(text):
         return False
 
@@ -1908,7 +2068,6 @@ async def message_handler(update, context):
 
     save_user(user)
 
-    # حماية الروابط والتحويلات
     if await protect_message(
         update,
         context,
@@ -1921,7 +2080,6 @@ async def message_handler(update, context):
     if not text:
         return
 
-    # المخالفات
     reason = violation_reason(text)
 
     if reason:
@@ -1934,11 +2092,8 @@ async def message_handler(update, context):
 
         return
 
-    # طلب مشوار
     if looks_like_trip(text):
 
-        # العميل/أي عضو يطلب مشوار
-        # لا نمنع الطلب حتى لو لم يسجل نفسه مسبقًا
         mark_customer(user)
 
         await create_trip(
@@ -1948,7 +2103,6 @@ async def message_handler(update, context):
 
         return
 
-    # جاهز
     if is_driver_ready(text):
 
         mark_driver(user)
@@ -1963,7 +2117,6 @@ async def message_handler(update, context):
 
         return
 
-    # موقع الكابتن
     if await handle_location(
         update,
         context,
@@ -1971,7 +2124,6 @@ async def message_handler(update, context):
 
         return
 
-    # التحيات
     if await handle_chat_response(
         message,
     ):
