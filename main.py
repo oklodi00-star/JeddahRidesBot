@@ -45,6 +45,51 @@ MUTE_HOURS = 24
 VIOLATION_RESET_DAYS = 30
 ADMIN_CACHE_SECONDS = 300
 
+# ============================================================
+# التذكير التفاعلي
+# ============================================================
+
+REMINDER_INTERVAL = 15 * 60
+
+INTERACTIVE_REMINDERS = [
+    (
+        "🚘🔥 <b>يا كباتن وعملاء {GROUP_NAME}!</b>\n\n"
+        "خلونا نزيد التفاعل ونوصل القروب لأكبر عدد 🙌\n"
+        "📢 انشر رابط القروب للي يحتاج مشاوير أو يقدم خدمة توصيل.\n\n"
+        "🔗 {ALLOWED_GROUP_LINK}"
+    ),
+
+    (
+        "📣 <b>تذكير سريع يا أهل المشاوير ❤️</b>\n\n"
+        "عندك صاحب أو زميل يحتاج مشاوير؟\n"
+        "أرسل له رابط القروب وخله ينضم معنا 🚘🔥\n\n"
+        "🔗 {ALLOWED_GROUP_LINK}"
+    ),
+
+    (
+        "🚕 <b>كباتننا وينكم؟ 😎🔥</b>\n"
+        "🧑🏻‍💼 <b>وعملائنا وينكم؟ ❤️</b>\n\n"
+        "خلونا نكبر القروب ونزيد الطلبات والمشاوير.\n"
+        "شارك الرابط مع اللي تعرفهم 👇\n\n"
+        "🔗 {ALLOWED_GROUP_LINK}"
+    ),
+
+    (
+        "🔥 <b>كل عضو جديد = فرصة مشوار جديدة 🚘</b>\n\n"
+        "لا تبخلون على القروب بالنشر ❤️\n"
+        "شاركوا الرابط مع الأهل والأصدقاء والزملاء.\n\n"
+        "🔗 {ALLOWED_GROUP_LINK}"
+    ),
+
+    (
+        "🚘❤️ <b>خلونا نخلي القروب مليان مشاوير!</b>\n\n"
+        "الكابتن يحتاج عملاء 👨‍✈️\n"
+        "والعميل يحتاج كابتن 🚕\n\n"
+        "وأفضل طريقة نزيد الفرص هي نشر القروب 📢🔥\n\n"
+        "🔗 {ALLOWED_GROUP_LINK}"
+    ),
+]
+
 
 # ============================================================
 # LOGGING
@@ -234,12 +279,6 @@ def mark_customer(user):
 
         con.commit()
 
-
-# ============================================================
-# NEW:
-# تحديد صفة العضو بواسطة ID
-# يستخدمها المسؤول عندما يحدد عضوًا آخر
-# ============================================================
 
 def mark_driver_by_id(user_id):
 
@@ -756,7 +795,7 @@ def get_greeting(text):
 
 
 # ============================================================
-# DRIVER READY PHRASES
+# DRIVER READY
 # ============================================================
 
 DRIVER_READY_PHRASES = [
@@ -1149,7 +1188,6 @@ async def ready_button(update, context):
 async def contact_customer_button(update, context):
 
     query = update.callback_query
-
     user = query.from_user
 
     if not user:
@@ -1235,7 +1273,6 @@ async def contact_customer_button(update, context):
 async def contact_driver_button(update, context):
 
     query = update.callback_query
-
     user = query.from_user
 
     if not user:
@@ -1320,32 +1357,22 @@ async def contact_driver_button(update, context):
 async def role_selection_button(update, context):
 
     query = update.callback_query
-
     data = query.data or ""
-
     clicked_by = query.from_user
 
     if not clicked_by:
-
         await query.answer()
         return
 
     try:
 
         role, target_id = data.split(":", 1)
-
         target_id = int(target_id)
 
     except Exception:
 
         await query.answer()
         return
-
-    # ========================================================
-    # مهم:
-    # العضو نفسه يستطيع اختيار صفته.
-    # المسؤول/المالك يستطيع اختيار صفة أي عضو.
-    # ========================================================
 
     admin = await is_admin(
         update,
@@ -1361,19 +1388,10 @@ async def role_selection_button(update, context):
 
         return
 
-    # ========================================================
-    # إذا العضو يحدد نفسه
-    # ========================================================
-
     if clicked_by.id == target_id:
 
         target_user = clicked_by
-
         save_user(target_user)
-
-    # ========================================================
-    # إذا المسؤول يحدد عضوًا آخر
-    # ========================================================
 
     else:
 
@@ -1387,10 +1405,6 @@ async def role_selection_button(update, context):
             )
 
             return
-
-    # ========================================================
-    # كابتن
-    # ========================================================
 
     if role == "role_driver":
 
@@ -1430,10 +1444,6 @@ async def role_selection_button(update, context):
         )
 
         return
-
-    # ========================================================
-    # عميل
-    # ========================================================
 
     if role == "role_customer":
 
@@ -1481,7 +1491,6 @@ async def role_selection_button(update, context):
 async def complaint_button(update, context):
 
     query = update.callback_query
-
     user = query.from_user
 
     if not user:
@@ -1672,24 +1681,9 @@ INAPPROPRIATE = [
 ]
 
 
-PRICE_WORDS = [
-    "السعر",
-    "كم السعر",
-    "بكم",
-    "كم",
-    "ريال",
-    "الاجرة",
-    "الأجرة",
-    "تكلفة",
-    "التكلفه",
-    "المبلغ",
-]
-
-
 def violation_reason(text):
 
     normalized = normalize_arabic(text)
-
     stripped = normalized.strip()
 
     if stripped in (
@@ -1788,7 +1782,6 @@ async def handle_violation(
         row = cur.fetchone()
 
         current = row[0] if row else 0
-
         last_at = row[1] if row else None
 
         if last_at:
@@ -2028,12 +2021,10 @@ async def handle_location(update, context):
 
 
 # ============================================================
-# CHAT / SMART RESPONSE
+# CHAT
 # ============================================================
 
-async def handle_chat_response(
-    message,
-):
+async def handle_chat_response(message):
 
     text = message.text or ""
 
@@ -2132,13 +2123,68 @@ async def message_handler(update, context):
 
 
 # ============================================================
+# التذكير كل 15 دقيقة
+# ============================================================
+
+async def interactive_reminder(context):
+
+    text = random.choice(
+        INTERACTIVE_REMINDERS
+    ).format(
+        GROUP_NAME=GROUP_NAME,
+        ALLOWED_GROUP_LINK=ALLOWED_GROUP_LINK,
+    )
+
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "📤 نشر رابط القروب",
+                url=(
+                    "https://t.me/share/url"
+                    f"?url={ALLOWED_GROUP_LINK}"
+                    "&text=🚘 انضموا لقروب مشاوير جدة"
+                ),
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "📋 القوانين",
+                callback_data="rules",
+            ),
+            InlineKeyboardButton(
+                "🚘 فتح القروب",
+                url=ALLOWED_GROUP_LINK,
+            ),
+        ],
+    ])
+
+    try:
+
+        await context.bot.send_message(
+            chat_id=GROUP_ID,
+            text=text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=keyboard,
+            disable_web_page_preview=True,
+        )
+
+        logger.info(
+            "Interactive reminder sent successfully."
+        )
+
+    except Exception as error:
+
+        logger.error(
+            "Reminder error: %s",
+            error,
+        )
+
+
+# ============================================================
 # CALLBACK HANDLER
 # ============================================================
 
-async def callback_handler(
-    update,
-    context,
-):
+async def callback_handler(update, context):
 
     query = update.callback_query
 
@@ -2212,10 +2258,7 @@ async def callback_handler(
 # ERROR HANDLER
 # ============================================================
 
-async def error_handler(
-    update,
-    context,
-):
+async def error_handler(update, context):
 
     logger.error(
         "BOT ERROR: %s",
@@ -2251,6 +2294,17 @@ def main():
         Application.builder()
         .token(TOKEN)
         .build()
+    )
+
+    # ========================================================
+    # تشغيل التذكير التلقائي كل 15 دقيقة
+    # ========================================================
+
+    application.job_queue.run_repeating(
+        interactive_reminder,
+        interval=REMINDER_INTERVAL,
+        first=REMINDER_INTERVAL,
+        name="interactive_group_reminder",
     )
 
     application.add_handler(
@@ -2300,6 +2354,11 @@ def main():
 
     print(
         "✅ Bot is running...",
+        flush=True,
+    )
+
+    print(
+        "📢 Interactive reminders: every 15 minutes",
         flush=True,
     )
 
