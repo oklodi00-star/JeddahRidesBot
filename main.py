@@ -1057,26 +1057,19 @@ async def create_trip(message, context):
 async def ready_button(update, context):
 
     query = update.callback_query
-
-    try:
-
-        trip_id = int(
-            query.data.split(":")[1]
-        )
-
-    except Exception:
-
-        await query.answer()
-        return
-
     driver = query.from_user
 
     if not driver:
-
         await query.answer()
         return
 
-    mark_driver(driver)
+    try:
+        trip_id = int(
+            query.data.split(":")[1]
+        )
+    except Exception:
+        await query.answer("حدث خطأ في الطلب.", show_alert=True)
+        return
 
     with db() as con:
 
@@ -1104,7 +1097,6 @@ async def ready_button(update, context):
             return
 
         customer_id = trip[0]
-        customer_username = trip[1] or ""
         start = trip[2]
         destination = trip[3]
 
@@ -1121,7 +1113,7 @@ async def ready_button(update, context):
         if cur.fetchone():
 
             await query.answer(
-                "أنت مسجل لهذا المشوار بالفعل 😂",
+                "أنت مسجل لهذا المشوار بالفعل ✅",
                 show_alert=True,
             )
 
@@ -1139,6 +1131,8 @@ async def ready_button(update, context):
         ))
 
         con.commit()
+
+    mark_driver(driver)
 
     await query.answer(
         random.choice(READY_MESSAGES),
