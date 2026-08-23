@@ -49,7 +49,8 @@ ADMIN_CACHE_SECONDS = 300
 # التذكير التفاعلي
 # ============================================================
 
-REMINDER_INTERVAL = 15 * 60
+# تم التعديل من 15 إلى 30 دقيقة
+REMINDER_INTERVAL = 30 * 60
 
 INTERACTIVE_REMINDERS = [
     (
@@ -1100,16 +1101,15 @@ async def ready_button(update, context):
     destination = trip[3]
 
     # ========================================================
-    # مهم:
-    # أي شخص يضغط الزر يتم حفظه ككابتن
-    # حتى لو كان مسجل سابقًا كعميل
+    # أي شخص يضغط الزر يعامل ككابتن
+    # لا يوجد استثناء للمالك أو الأدمن
     # ========================================================
 
     save_user(driver)
     mark_driver(driver)
 
     # ========================================================
-    # التحقق من عدم تسجيل نفس الكابتن لنفس الطلب مرتين
+    # منع تسجيل نفس الكابتن لنفس الطلب مرتين
     # ========================================================
 
     with db() as con:
@@ -1338,8 +1338,33 @@ async def contact_driver_button(update, context):
         cur.execute("""
             SELECT 1
             FROM ready
+            WHERE trip_id = ?
+            AND driver_id = ?
+        """, (
+            driver_id,
+            customer_id,
+        ))
+
+        row = cur.fetchone()
+
+    # التحقق الصحيح من تسجيل الكابتن لهذا الطلب
+    with db() as con:
+
+        cur = con.cursor()
+
+        cur.execute("""
+            SELECT 1
+            FROM ready
             WHERE driver_id = ?
-        """, (driver_id,))
+            AND trip_id IN (
+                SELECT message_id
+                FROM trips
+                WHERE customer_id = ?
+            )
+        """, (
+            driver_id,
+            customer_id,
+        ))
 
         row = cur.fetchone()
 
@@ -2152,7 +2177,7 @@ async def message_handler(update, context):
 
 
 # ============================================================
-# التذكير كل 15 دقيقة
+# التذكير كل 30 دقيقة
 # ============================================================
 
 async def interactive_reminder(context):
@@ -2326,7 +2351,7 @@ def main():
     )
 
     # ========================================================
-    # تشغيل التذكير التلقائي كل 15 دقيقة
+    # تشغيل التذكير التلقائي كل 30 دقيقة
     # ========================================================
 
     application.job_queue.run_repeating(
@@ -2387,7 +2412,7 @@ def main():
     )
 
     print(
-        "📢 Interactive reminders: every 15 minutes",
+        "📢 Interactive reminders: every 30 minutes",
         flush=True,
     )
 
