@@ -58,14 +58,12 @@ INTERACTIVE_REMINDERS = [
         "📢 انشر رابط القروب للي يحتاج مشاوير أو يقدم خدمة توصيل.\n\n"
         "🔗 {ALLOWED_GROUP_LINK}"
     ),
-
     (
         "📣 <b>تذكير سريع يا أهل المشاوير ❤️</b>\n\n"
         "عندك صاحب أو زميل يحتاج مشاوير؟\n"
         "أرسل له رابط القروب وخله ينضم معنا 🚘🔥\n\n"
         "🔗 {ALLOWED_GROUP_LINK}"
     ),
-
     (
         "🚕 <b>كباتننا وينكم؟ 😎🔥</b>\n"
         "🧑🏻‍💼 <b>وعملائنا وينكم؟ ❤️</b>\n\n"
@@ -73,14 +71,12 @@ INTERACTIVE_REMINDERS = [
         "شارك الرابط مع اللي تعرفهم 👇\n\n"
         "🔗 {ALLOWED_GROUP_LINK}"
     ),
-
     (
         "🔥 <b>كل عضو جديد = فرصة مشوار جديدة 🚘</b>\n\n"
         "لا تبخلون على القروب بالنشر ❤️\n"
         "شاركوا الرابط مع الأهل والأصدقاء والزملاء.\n\n"
         "🔗 {ALLOWED_GROUP_LINK}"
     ),
-
     (
         "🚘❤️ <b>خلونا نخلي القروب مليان مشاوير!</b>\n\n"
         "الكابتن يحتاج عملاء 👨‍✈️\n"
@@ -89,7 +85,6 @@ INTERACTIVE_REMINDERS = [
         "🔗 {ALLOWED_GROUP_LINK}"
     ),
 ]
-
 
 # ============================================================
 # LOGGING
@@ -102,7 +97,6 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-
 # ============================================================
 # TOKEN
 # ============================================================
@@ -111,7 +105,6 @@ if not TOKEN:
     raise RuntimeError(
         "BOT_TOKEN غير موجود في GitHub Secrets."
     )
-
 
 # ============================================================
 # DATABASE
@@ -561,7 +554,7 @@ RULES = f"""
 2️⃣ العميل يكتب طلبه بوضوح:
 📍 من وين → إلى وين.
 
-3️⃣ الكابتن الجاهز يضغط زر «👨‍✈️ جاهز للمشوار».
+3️⃣ 🚕 الكابتن الجاهز يضغط زر «🚕 جاهز للمشوار».
 
 4️⃣ 🚫 ممنوع كتابة كلمة «خاص» داخل القروب.
 
@@ -592,7 +585,6 @@ RULES = f"""
 📩 الإدارة:
 @{ADMIN_USERNAME}
 """
-
 
 # ============================================================
 # WELCOME
@@ -1068,8 +1060,15 @@ async def ready_button(update, context):
             query.data.split(":")[1]
         )
     except Exception:
-        await query.answer("حدث خطأ في الطلب.", show_alert=True)
+        await query.answer(
+            "حدث خطأ في الطلب.",
+            show_alert=True,
+        )
         return
+
+    # ========================================================
+    # جلب بيانات الطلب
+    # ========================================================
 
     with db() as con:
 
@@ -1087,18 +1086,35 @@ async def ready_button(update, context):
 
         trip = cur.fetchone()
 
-        if not trip:
+    if not trip:
 
-            await query.answer(
-                "الطلب غير موجود.",
-                show_alert=True,
-            )
+        await query.answer(
+            "الطلب غير موجود.",
+            show_alert=True,
+        )
 
-            return
+        return
 
-        customer_id = trip[0]
-        start = trip[2]
-        destination = trip[3]
+    customer_id = trip[0]
+    start = trip[2]
+    destination = trip[3]
+
+    # ========================================================
+    # مهم:
+    # أي شخص يضغط الزر يتم حفظه ككابتن
+    # حتى لو كان مسجل سابقًا كعميل
+    # ========================================================
+
+    save_user(driver)
+    mark_driver(driver)
+
+    # ========================================================
+    # التحقق من عدم تسجيل نفس الكابتن لنفس الطلب مرتين
+    # ========================================================
+
+    with db() as con:
+
+        cur = con.cursor()
 
         cur.execute("""
             SELECT 1
@@ -1110,7 +1126,9 @@ async def ready_button(update, context):
             driver.id,
         ))
 
-        if cur.fetchone():
+        already_ready = cur.fetchone()
+
+        if already_ready:
 
             await query.answer(
                 "أنت مسجل لهذا المشوار بالفعل ✅",
@@ -1132,25 +1150,18 @@ async def ready_button(update, context):
 
         con.commit()
 
-    mark_driver(driver)
+    # ========================================================
+    # رسالة نجاح
+    # ========================================================
 
     await query.answer(
         random.choice(READY_MESSAGES),
         show_alert=True,
     )
 
-    buttons = [
-        [
-            InlineKeyboardButton(
-                "📩 تواصل مع العميل",
-                callback_data=f"contact:{trip_id}:{driver.id}",
-            ),
-            InlineKeyboardButton(
-                "📞 تواصل مع الكابتن",
-                callback_data=f"contactdriver:{customer_id}:{driver.id}",
-            ),
-        ]
-    ]
+    # ========================================================
+    # المسار
+    # ========================================================
 
     route = ""
 
@@ -1161,18 +1172,42 @@ async def ready_button(update, context):
             f" → {html(destination)}"
         )
 
-    await context.bot.send_message(
-        chat_id=GROUP_ID,
-        text=(
-            "🚕 <b>كابتن جاهز للمشوار</b>\n\n"
-            f"👨‍✈️ {display_user(driver)}"
-            f"{route}\n\n"
-            "💰 التفاهم والسعر بالخاص."
-        ),
-        parse_mode=ParseMode.HTML,
-        reply_markup=InlineKeyboardMarkup(buttons),
-        reply_to_message_id=trip_id,
-    )
+    # ========================================================
+    # إظهار الكابتن في القروب
+    # ========================================================
+
+    try:
+
+        await context.bot.send_message(
+            chat_id=GROUP_ID,
+            text=(
+                "🚕 <b>كابتن جاهز للمشوار</b>\n\n"
+                f"👨‍✈️ {display_user(driver)}"
+                f"{route}\n\n"
+                "💰 التفاهم والسعر بالخاص."
+            ),
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton(
+                        "📩 تواصل مع العميل",
+                        callback_data=f"contact:{trip_id}:{driver.id}",
+                    ),
+                    InlineKeyboardButton(
+                        "📞 تواصل مع الكابتن",
+                        callback_data=f"contactdriver:{customer_id}:{driver.id}",
+                    ),
+                ]
+            ]),
+            reply_to_message_id=trip_id,
+        )
+
+    except Exception as error:
+
+        logger.error(
+            "Ready notification error: %s",
+            error,
+        )
 
 
 # ============================================================
