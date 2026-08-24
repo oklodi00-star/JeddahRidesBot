@@ -35,6 +35,9 @@ GROUP_NAME = "🚘 مشاوير جدة وضواحيها"
 ADMIN_USERNAME = "klodi500"
 OWNER_USERNAME = "klodi500"
 
+# ID صاحب البوت - يستقبل تنبيهات مغادرة الأعضاء على الخاص
+OWNER_ID = 952638746
+
 ALLOWED_GROUP_LINK = "https://t.me/JeddahRides"
 
 SAUDI_TZ = ZoneInfo("Asia/Riyadh")
@@ -154,10 +157,6 @@ def init_db():
                 UNIQUE(trip_id, driver_id)
             )
         """)
-
-        # --------------------------------------------------------
-        # التأكد من الأعمدة القديمة
-        # --------------------------------------------------------
 
         cur.execute("PRAGMA table_info(users)")
         columns = [row[1] for row in cur.fetchall()]
@@ -417,7 +416,7 @@ def is_owner(user):
     if not user:
         return False
 
-    if user.id == 952638746:
+    if user.id == OWNER_ID:
         return True
 
     if user.username:
@@ -570,6 +569,82 @@ async def welcome(update, context):
             "🚕 الكابتن: يأخذ المشاوير.",
             parse_mode=ParseMode.HTML,
             reply_markup=keyboard,
+        )
+
+
+# ============================================================
+# مراقبة مغادرة الأعضاء
+# يرسل للمالك على الخاص فقط
+# ============================================================
+
+async def member_left_handler(update, context):
+    message = update.message
+
+    if not message:
+        return
+
+    left_member = message.left_chat_member
+
+    if not left_member:
+        return
+
+    # تجاهل البوتات
+    if left_member.is_bot:
+        return
+
+    # حفظ بيانات العضو إن كانت موجودة
+    save_user(left_member)
+
+    # نحاول معرفة هل غادر بنفسه أو تم طرده
+    try:
+        member = await context.bot.get_chat_member(
+            GROUP_ID,
+            left_member.id,
+        )
+
+        if member.status == "kicked":
+            action_text = "🚫 تم إخراجه من القروب"
+        else:
+            action_text = "👋 غادر القروب"
+
+    except Exception:
+        action_text = "👋 غادر القروب"
+
+    username_text = ""
+
+    if left_member.username:
+        username_text = (
+            f"\n🔹 <b>اليوزر:</b> "
+            f"@{html(left_member.username)}"
+        )
+
+    try:
+        await context.bot.send_message(
+            chat_id=OWNER_ID,
+            text=(
+                "🚨 <b>تنبيه مغادرة عضو</b>\n\n"
+                f"👤 <b>الاسم:</b> "
+                f"{html(left_member.full_name)}"
+                f"{username_text}\n"
+                f"🆔 <b>ID:</b> "
+                f"<code>{left_member.id}</code>\n\n"
+                f"{action_text}\n"
+                f"📍 <b>القروب:</b> "
+                f"{html(GROUP_NAME)}"
+            ),
+            parse_mode=ParseMode.HTML,
+        )
+
+        logger.info(
+            "Member left notification sent to owner: %s (%s)",
+            left_member.full_name,
+            left_member.id,
+        )
+
+    except Exception as error:
+        logger.error(
+            "Failed to send member-left notification to owner: %s",
+            error,
         )
 
 
@@ -1149,19 +1224,8 @@ async def ready_button(update, context):
 
         return
 
-    # --------------------------------------------------------
-    # تسجيل الشخص ككابتن بشكل دائم
-    # --------------------------------------------------------
-
     save_user(driver)
     mark_driver(driver)
-
-    # --------------------------------------------------------
-    # جلب بيانات المشوار
-    #
-    # لا يوجد شرط عمر.
-    # المشوار القديم والشهري يبقى صالحًا.
-    # --------------------------------------------------------
 
     with db() as con:
 
@@ -1181,10 +1245,6 @@ async def ready_button(update, context):
 
         trip = cur.fetchone()
 
-    # --------------------------------------------------------
-    # إذا كانت البيانات موجودة
-    # --------------------------------------------------------
-
     if trip:
 
         customer_id = trip[0]
@@ -1194,12 +1254,6 @@ async def ready_button(update, context):
         original_text = trip[4] or ""
         created_at = trip[5] or ""
 
-    # --------------------------------------------------------
-    # إذا كانت البطاقة قديمة والـ DB لا تحتوي عليها
-    #
-    # لا نقتل الزر.
-    # --------------------------------------------------------
-
     else:
 
         customer_id = None
@@ -1208,10 +1262,6 @@ async def ready_button(update, context):
         destination = ""
         original_text = ""
         created_at = ""
-
-    # --------------------------------------------------------
-    # منع نفس الكابتن من الضغط مرتين
-    # --------------------------------------------------------
 
     with db() as con:
 
@@ -1251,18 +1301,10 @@ async def ready_button(update, context):
 
         con.commit()
 
-    # --------------------------------------------------------
-    # تأكيد للكابتن
-    # --------------------------------------------------------
-
     await query.answer(
         random.choice(READY_MESSAGES),
         show_alert=True,
     )
-
-    # --------------------------------------------------------
-    # تجهيز تفاصيل الطريق
-    # --------------------------------------------------------
 
     if start and destination:
 
@@ -1284,10 +1326,6 @@ async def ready_button(update, context):
             "\n📅 <b>مشوار قديم / شهري</b>\n"
             "تم تسجيل جاهزية الكابتن لهذا الطلب."
         )
-
-    # --------------------------------------------------------
-    # إرسال إشعار في القروب
-    # --------------------------------------------------------
 
     try:
 
@@ -1369,10 +1407,6 @@ async def contact_customer_button(update, context):
 
         return
 
-    # --------------------------------------------------------
-    # الزر للكابتن الذي ضغط جاهز فقط
-    # --------------------------------------------------------
-
     if user.id != driver_id:
 
         await query.answer(
@@ -1381,10 +1415,6 @@ async def contact_customer_button(update, context):
         )
 
         return
-
-    # --------------------------------------------------------
-    # جلب العميل بدون أي شرط زمني
-    # --------------------------------------------------------
 
     with db() as con:
 
@@ -1402,16 +1432,11 @@ async def contact_customer_button(update, context):
 
         row = cur.fetchone()
 
-    # --------------------------------------------------------
-    # المشوار موجود
-    # --------------------------------------------------------
-
     if row:
 
         customer_id = row[0]
         username = row[1] or ""
 
-        # نأخذ اليوزر المحدث من قاعدة المستخدمين إذا أمكن
         saved_username = get_username(customer_id)
 
         if saved_username:
@@ -1445,20 +1470,12 @@ async def contact_customer_button(update, context):
 
             return
 
-        # ----------------------------------------------------
-        # العميل موجود ولكن بدون يوزر
-        # ----------------------------------------------------
-
         await query.answer(
             "العميل موجود لكن ما عنده يوزر تيليجرام ظاهر.",
             show_alert=True,
         )
 
         return
-
-    # --------------------------------------------------------
-    # المشوار قديم جدًا والـ DB لا تحتوي سجله
-    # --------------------------------------------------------
 
     await query.answer(
         "هذا المشوار قديم وبيانات العميل غير محفوظة عند البوت.\n"
@@ -1496,10 +1513,6 @@ async def contact_driver_button(update, context):
 
         return
 
-    # --------------------------------------------------------
-    # الزر لصاحب الطلب فقط
-    # --------------------------------------------------------
-
     if user.id != customer_id:
 
         await query.answer(
@@ -1508,11 +1521,6 @@ async def contact_driver_button(update, context):
         )
 
         return
-
-    # --------------------------------------------------------
-    # التحقق من تسجيل الكابتن لهذا المشوار
-    # بدون أي حد زمني
-    # --------------------------------------------------------
 
     with db() as con:
 
@@ -1528,10 +1536,6 @@ async def contact_driver_button(update, context):
             customer_id if False else 0,
         ))
 
-        # لا نعتمد على هذا الاستعلام.
-        # سيتم التحقق بالطريقة الصحيحة أسفل.
-        pass
-
         cur.execute("""
             SELECT trip_id
             FROM ready
@@ -1539,11 +1543,6 @@ async def contact_driver_button(update, context):
         """, (driver_id,))
 
         ready_rows = cur.fetchall()
-
-    # --------------------------------------------------------
-    # لا نحتاج نقتل الزر إذا كانت البطاقة قديمة.
-    # نبحث عن الكابتن في المستخدمين.
-    # --------------------------------------------------------
 
     username = get_username(driver_id)
 
@@ -2167,10 +2166,6 @@ async def message_handler(update, context):
 
         return
 
-    # --------------------------------------------------------
-    # التواجد قبل المشوار
-    # --------------------------------------------------------
-
     if looks_like_driver_location(text):
 
         await handle_location(
@@ -2179,10 +2174,6 @@ async def message_handler(update, context):
         )
 
         return
-
-    # --------------------------------------------------------
-    # الجاهز قبل المشوار
-    # --------------------------------------------------------
 
     if is_driver_ready(text):
 
@@ -2199,10 +2190,6 @@ async def message_handler(update, context):
         )
 
         return
-
-    # --------------------------------------------------------
-    # طلب مشوار
-    # --------------------------------------------------------
 
     if looks_like_trip(text):
 
@@ -2421,10 +2408,23 @@ def main():
         )
     )
 
+    # أعضاء جدد
     application.add_handler(
         MessageHandler(
             filters.StatusUpdate.NEW_CHAT_MEMBERS,
             welcome,
+        )
+    )
+
+    # ========================================================
+    # مراقبة مغادرة الأعضاء
+    # التنبيه يذهب للمالك على الخاص فقط
+    # ========================================================
+
+    application.add_handler(
+        MessageHandler(
+            filters.StatusUpdate.LEFT_CHAT_MEMBER,
+            member_left_handler,
         )
     )
 
@@ -2452,6 +2452,11 @@ def main():
 
     print(
         "📢 Interactive reminders: every 30 minutes",
+        flush=True,
+    )
+
+    print(
+        "👋 Member leave monitoring: OWNER private notification",
         flush=True,
     )
 
