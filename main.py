@@ -49,7 +49,6 @@ ADMIN_CACHE_SECONDS = 300
 # التذكير التفاعلي
 # ============================================================
 
-# تم التعديل من 15 إلى 30 دقيقة
 REMINDER_INTERVAL = 30 * 60
 
 INTERACTIVE_REMINDERS = [
@@ -164,28 +163,24 @@ def init_db():
         columns = [row[1] for row in cur.fetchall()]
 
         if "is_driver" not in columns:
-
             cur.execute("""
                 ALTER TABLE users
                 ADD COLUMN is_driver INTEGER DEFAULT 0
             """)
 
         if "is_customer" not in columns:
-
             cur.execute("""
                 ALTER TABLE users
                 ADD COLUMN is_customer INTEGER DEFAULT 0
             """)
 
         if "violations" not in columns:
-
             cur.execute("""
                 ALTER TABLE users
                 ADD COLUMN violations INTEGER DEFAULT 0
             """)
 
         if "last_violation_at" not in columns:
-
             cur.execute("""
                 ALTER TABLE users
                 ADD COLUMN last_violation_at TEXT
@@ -195,7 +190,6 @@ def init_db():
         trip_columns = [row[1] for row in cur.fetchall()]
 
         if "customer_username" not in trip_columns:
-
             cur.execute("""
                 ALTER TABLE trips
                 ADD COLUMN customer_username TEXT DEFAULT ''
@@ -974,6 +968,10 @@ async def create_trip(message, context):
             f"{html(text)}"
         )
 
+    # ========================================================
+    # إرسال بطاقة المشوار
+    # ========================================================
+
     sent = await message.reply_text(
         "🚘 <b>╭━━ بطاقة مشوار ━━╮</b>\n\n"
         "🧑🏻‍💼 <b>عميل يطلب مشوار</b>\n\n"
@@ -997,6 +995,10 @@ async def create_trip(message, context):
             ],
         ]),
     )
+
+    # ========================================================
+    # حفظ بيانات المشوار
+    # ========================================================
 
     with db() as con:
 
@@ -1025,22 +1027,58 @@ async def create_trip(message, context):
 
         con.commit()
 
-    await sent.edit_reply_markup(
-        InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton(
-                    "🚕 جاهز للمشوار",
-                    callback_data=f"ready:{sent.message_id}",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "📝 شكوى / اقتراح",
-                    callback_data=f"complaint:{customer.id}",
-                )
-            ],
-        ])
-    )
+    # ========================================================
+    # حذف رسالة العميل بأسرع وقت ممكن
+    #
+    # الحذف هنا قبل تعديل زر البطاقة حتى لا نضيف طلب شبكة
+    # آخر قبل حذف رسالة العميل.
+    # ========================================================
+
+    try:
+
+        await message.delete()
+
+        logger.info(
+            "Original customer message deleted immediately: %s",
+            message.message_id,
+        )
+
+    except Exception as error:
+
+        logger.error(
+            "Could not delete original customer message: %s",
+            error,
+        )
+
+    # ========================================================
+    # تحديث زر جاهز برقم البطاقة الحقيقي
+    # ========================================================
+
+    try:
+
+        await sent.edit_reply_markup(
+            InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton(
+                        "🚕 جاهز للمشوار",
+                        callback_data=f"ready:{sent.message_id}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "📝 شكوى / اقتراح",
+                        callback_data=f"complaint:{customer.id}",
+                    )
+                ],
+            ])
+        )
+
+    except Exception as error:
+
+        logger.error(
+            "Could not update trip buttons: %s",
+            error,
+        )
 
 
 # ============================================================
@@ -1066,10 +1104,6 @@ async def ready_button(update, context):
             show_alert=True,
         )
         return
-
-    # ========================================================
-    # جلب بيانات الطلب
-    # ========================================================
 
     with db() as con:
 
@@ -1100,17 +1134,9 @@ async def ready_button(update, context):
     start = trip[2]
     destination = trip[3]
 
-    # ========================================================
     # أي شخص يضغط الزر يعامل ككابتن
-    # لا يوجد استثناء للمالك أو الأدمن
-    # ========================================================
-
     save_user(driver)
     mark_driver(driver)
-
-    # ========================================================
-    # منع تسجيل نفس الكابتن لنفس الطلب مرتين
-    # ========================================================
 
     with db() as con:
 
@@ -1150,18 +1176,10 @@ async def ready_button(update, context):
 
         con.commit()
 
-    # ========================================================
-    # رسالة نجاح
-    # ========================================================
-
     await query.answer(
         random.choice(READY_MESSAGES),
         show_alert=True,
     )
-
-    # ========================================================
-    # المسار
-    # ========================================================
 
     route = ""
 
@@ -1171,10 +1189,6 @@ async def ready_button(update, context):
             f"\n📍 {html(start)}"
             f" → {html(destination)}"
         )
-
-    # ========================================================
-    # إظهار الكابتن في القروب
-    # ========================================================
 
     try:
 
@@ -1331,23 +1345,7 @@ async def contact_driver_button(update, context):
 
         return
 
-    with db() as con:
-
-        cur = con.cursor()
-
-        cur.execute("""
-            SELECT 1
-            FROM ready
-            WHERE trip_id = ?
-            AND driver_id = ?
-        """, (
-            driver_id,
-            customer_id,
-        ))
-
-        row = cur.fetchone()
-
-    # التحقق الصحيح من تسجيل الكابتن لهذا الطلب
+    # التحقق من أن الكابتن مسجل في أحد طلبات هذا العميل
     with db() as con:
 
         cur = con.cursor()
@@ -2349,10 +2347,6 @@ def main():
         .token(TOKEN)
         .build()
     )
-
-    # ========================================================
-    # تشغيل التذكير التلقائي كل 30 دقيقة
-    # ========================================================
 
     application.job_queue.run_repeating(
         interactive_reminder,
