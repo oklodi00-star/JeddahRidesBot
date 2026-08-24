@@ -147,7 +147,8 @@ def init_db():
                 created_at TEXT,
                 start TEXT,
                 destination TEXT,
-                original_text TEXT
+                original_text TEXT,
+                trip_type TEXT DEFAULT 'normal'
             )
         """)
 
@@ -159,40 +160,60 @@ def init_db():
             )
         """)
 
+        # ====================================================
+        # تحديث جدول users للنسخ القديمة
+        # ====================================================
+
         cur.execute("PRAGMA table_info(users)")
         columns = [row[1] for row in cur.fetchall()]
 
         if "is_driver" not in columns:
+
             cur.execute("""
                 ALTER TABLE users
                 ADD COLUMN is_driver INTEGER DEFAULT 0
             """)
 
         if "is_customer" not in columns:
+
             cur.execute("""
                 ALTER TABLE users
                 ADD COLUMN is_customer INTEGER DEFAULT 0
             """)
 
         if "violations" not in columns:
+
             cur.execute("""
                 ALTER TABLE users
                 ADD COLUMN violations INTEGER DEFAULT 0
             """)
 
         if "last_violation_at" not in columns:
+
             cur.execute("""
                 ALTER TABLE users
                 ADD COLUMN last_violation_at TEXT
             """)
 
+        # ====================================================
+        # تحديث جدول trips للنسخ القديمة
+        # ====================================================
+
         cur.execute("PRAGMA table_info(trips)")
         trip_columns = [row[1] for row in cur.fetchall()]
 
         if "customer_username" not in trip_columns:
+
             cur.execute("""
                 ALTER TABLE trips
                 ADD COLUMN customer_username TEXT DEFAULT ''
+            """)
+
+        if "trip_type" not in trip_columns:
+
+            cur.execute("""
+                ALTER TABLE trips
+                ADD COLUMN trip_type TEXT DEFAULT 'normal'
             """)
 
         con.commit()
@@ -680,6 +701,9 @@ async def help_command(update, context):
         "🚕 الكابتن:\n"
         "إذا يناسبك الطلب اضغط «جاهز للمشوار».\n\n"
 
+        "📅 المشوار الشهري:\n"
+        "اكتب كلمة «شهري» أو «دوام» داخل الطلب.\n\n"
+
         "💰 السعر والتفاهم يكون بالخاص.\n\n"
 
         "📍 الكابتن يقدر يعلن موقعه مرة واحدة يوميًا."
@@ -863,6 +887,67 @@ TRIP_PHRASES = [
 ]
 
 
+# ============================================================
+# التمييز بين المشوار العادي والمشوار الشهري
+# ============================================================
+
+MONTHLY_TRIP_PHRASES = [
+    "شهري",
+    "شهرية",
+    "شهريا",
+    "شهرياً",
+    "شهريًا",
+    "شهريه",
+    "بالشهر",
+    "كل شهر",
+    "شهريه",
+    "دوام",
+    "يومي",
+    "يومية",
+    "يوميا",
+    "يومياً",
+    "يوميًا",
+    "يوميه",
+    "كل يوم",
+    "يوميات",
+    "ذهاب وعودة يوميا",
+    "ذهاب وعوده يوميا",
+    "ذهاب وعودة يوميًا",
+    "ذهاب وعوده يوميًا",
+]
+
+
+def is_monthly_trip(text):
+
+    normalized = normalize_arabic(text)
+
+    for phrase in MONTHLY_TRIP_PHRASES:
+
+        if normalize_arabic(phrase) in normalized:
+
+            return True
+
+    return False
+
+
+def get_trip_type(text):
+
+    if is_monthly_trip(text):
+
+        return "monthly"
+
+    return "normal"
+
+
+def trip_type_text(trip_type):
+
+    if trip_type == "monthly":
+
+        return "📅 <b>نوع المشوار: مشوار شهري</b>"
+
+    return "📅 <b>نوع المشوار: مشوار عادي</b>"
+
+
 def looks_like_trip(text):
 
     normalized = normalize_arabic(text)
@@ -884,6 +969,25 @@ def looks_like_trip(text):
     ):
 
         return True
+
+    # ========================================================
+    # إذا كتب العميل "شهري" أو "دوام" مع تفاصيل الطريق
+    # يعتبر طلب مشوار أيضًا
+    # ========================================================
+
+    if is_monthly_trip(text):
+
+        if (
+            "→" in text
+            or "->" in text
+            or re.search(
+                r"\bمن\s+.+?\s+(?:الى|الي|إلى|إلي)\s+.+",
+                text,
+                re.IGNORECASE,
+            )
+        ):
+
+            return True
 
     return False
 
@@ -952,6 +1056,12 @@ async def create_trip(message, context):
         message.text or ""
     )
 
+    # ========================================================
+    # تحديد نوع المشوار
+    # ========================================================
+
+    trip_type = get_trip_type(text)
+
     start, destination = extract_route(text)
 
     if start and destination:
@@ -969,12 +1079,13 @@ async def create_trip(message, context):
         )
 
     # ========================================================
-    # إرسال بطاقة المشوار
+    # البطاقة
     # ========================================================
 
     sent = await message.reply_text(
         "🚘 <b>╭━━ بطاقة مشوار ━━╮</b>\n\n"
         "🧑🏻‍💼 <b>عميل يطلب مشوار</b>\n\n"
+        f"{trip_type_text(trip_type)}\n\n"
         f"{route}\n\n"
         "👨‍✈️ الكابتن المناسب يضغط «جاهز للمشوار».\n"
         "💰 السعر والتفاهم يكون بالخاص.\n\n"
@@ -997,7 +1108,7 @@ async def create_trip(message, context):
     )
 
     # ========================================================
-    # حفظ بيانات المشوار
+    # حفظ الطلب
     # ========================================================
 
     with db() as con:
@@ -1012,9 +1123,10 @@ async def create_trip(message, context):
                 created_at,
                 start,
                 destination,
-                original_text
+                original_text,
+                trip_type
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             sent.message_id,
             customer.id,
@@ -1023,62 +1135,31 @@ async def create_trip(message, context):
             start or "",
             destination or "",
             text,
+            trip_type,
         ))
 
         con.commit()
 
     # ========================================================
-    # حذف رسالة العميل بأسرع وقت ممكن
-    #
-    # الحذف هنا قبل تعديل زر البطاقة حتى لا نضيف طلب شبكة
-    # آخر قبل حذف رسالة العميل.
+    # تحديث زر جاهز برقم الطلب الحقيقي
     # ========================================================
 
-    try:
-
-        await message.delete()
-
-        logger.info(
-            "Original customer message deleted immediately: %s",
-            message.message_id,
-        )
-
-    except Exception as error:
-
-        logger.error(
-            "Could not delete original customer message: %s",
-            error,
-        )
-
-    # ========================================================
-    # تحديث زر جاهز برقم البطاقة الحقيقي
-    # ========================================================
-
-    try:
-
-        await sent.edit_reply_markup(
-            InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton(
-                        "🚕 جاهز للمشوار",
-                        callback_data=f"ready:{sent.message_id}",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "📝 شكوى / اقتراح",
-                        callback_data=f"complaint:{customer.id}",
-                    )
-                ],
-            ])
-        )
-
-    except Exception as error:
-
-        logger.error(
-            "Could not update trip buttons: %s",
-            error,
-        )
+    await sent.edit_reply_markup(
+        InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(
+                    "🚕 جاهز للمشوار",
+                    callback_data=f"ready:{sent.message_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📝 شكوى / اقتراح",
+                    callback_data=f"complaint:{customer.id}",
+                )
+            ],
+        ])
+    )
 
 
 # ============================================================
@@ -1099,11 +1180,17 @@ async def ready_button(update, context):
             query.data.split(":")[1]
         )
     except Exception:
+
         await query.answer(
             "حدث خطأ في الطلب.",
             show_alert=True,
         )
+
         return
+
+    # ========================================================
+    # جلب بيانات الطلب
+    # ========================================================
 
     with db() as con:
 
@@ -1114,7 +1201,8 @@ async def ready_button(update, context):
                 customer_id,
                 customer_username,
                 start,
-                destination
+                destination,
+                trip_type
             FROM trips
             WHERE message_id = ?
         """, (trip_id,))
@@ -1133,10 +1221,18 @@ async def ready_button(update, context):
     customer_id = trip[0]
     start = trip[2]
     destination = trip[3]
+    trip_type = trip[4] or "normal"
 
+    # ========================================================
     # أي شخص يضغط الزر يعامل ككابتن
+    # ========================================================
+
     save_user(driver)
     mark_driver(driver)
+
+    # ========================================================
+    # منع تسجيل نفس الكابتن لنفس الطلب مرتين
+    # ========================================================
 
     with db() as con:
 
@@ -1176,10 +1272,18 @@ async def ready_button(update, context):
 
         con.commit()
 
+    # ========================================================
+    # رسالة نجاح
+    # ========================================================
+
     await query.answer(
         random.choice(READY_MESSAGES),
         show_alert=True,
     )
+
+    # ========================================================
+    # المسار
+    # ========================================================
 
     route = ""
 
@@ -1190,13 +1294,28 @@ async def ready_button(update, context):
             f" → {html(destination)}"
         )
 
+    # ========================================================
+    # نوع المشوار في رسالة الكابتن
+    # ========================================================
+
+    trip_label = (
+        "📅 <b>مشوار شهري</b>"
+        if trip_type == "monthly"
+        else "📅 <b>مشوار عادي</b>"
+    )
+
+    # ========================================================
+    # إظهار الكابتن في القروب
+    # ========================================================
+
     try:
 
         await context.bot.send_message(
             chat_id=GROUP_ID,
             text=(
                 "🚕 <b>كابتن جاهز للمشوار</b>\n\n"
-                f"👨‍✈️ {display_user(driver)}"
+                f"👨‍✈️ {display_user(driver)}\n"
+                f"{trip_label}"
                 f"{route}\n\n"
                 "💰 التفاهم والسعر بالخاص."
             ),
@@ -1345,7 +1464,10 @@ async def contact_driver_button(update, context):
 
         return
 
-    # التحقق من أن الكابتن مسجل في أحد طلبات هذا العميل
+    # ========================================================
+    # التحقق من أن الكابتن مسجل في أحد طلبات العميل
+    # ========================================================
+
     with db() as con:
 
         cur = con.cursor()
@@ -1359,6 +1481,7 @@ async def contact_driver_button(update, context):
                 FROM trips
                 WHERE customer_id = ?
             )
+            LIMIT 1
         """, (
             driver_id,
             customer_id,
@@ -2348,6 +2471,10 @@ def main():
         .build()
     )
 
+    # ========================================================
+    # تشغيل التذكير التلقائي كل 30 دقيقة
+    # ========================================================
+
     application.job_queue.run_repeating(
         interactive_reminder,
         interval=REMINDER_INTERVAL,
@@ -2407,6 +2534,11 @@ def main():
 
     print(
         "📢 Interactive reminders: every 30 minutes",
+        flush=True,
+    )
+
+    print(
+        "📅 Monthly trips detection: ENABLED",
         flush=True,
     )
 
