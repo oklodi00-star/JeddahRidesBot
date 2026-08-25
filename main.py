@@ -94,12 +94,8 @@ MONTHLY_TRIP_WORDS = [
     "اسبوعي", "اسبوعيا", "أسبوعي", "أسبوعياً",
     "دوام", "مدرسة", "جامعة", "عمل", "شغل",
     "مشوار يومي", "توصيل يومي", "مشوار شهري",
-    "شهر", "شهرين", "بالاسبوع", "بالأسبوع",
     "مستمر", "دائم", "باستمرار",
-    "الروحة والرجعة", "ذهاب وعودة", "رايح جاي",
-    "كل صباح", "كل مساء", "منتظم", "على طول",
-    "يومي", "اسبوعي", "شهريا", "اسبوعيا",
-    "موظف", "موظفة", "طالب", "طالبة", "معلمة", "معلم",
+    "موظف", "موظفة", "طالب", "طالبة",
 ]
 
 NORMAL_TRIP_WORDS = [
@@ -111,7 +107,7 @@ NORMAL_TRIP_WORDS = [
     "احتاج مشوار", "محتاج مشوار", "احتاج توصيل",
     "احد يوصلني", "مين يوصلني", "من يوصلني",
     "فيه كابتن", "في كابتن", "كابتن يوصل",
-    "ممكن توصلني", "ممكن توصيل", "اوصلني", "ودني",
+    "ممكن توصلني", "اوصلني", "ودني",
     "عندي مشوار", "عندي توصيلة",
     "الحين", "حالا", "بسرعة", "عاجل",
     "ابي", "ابغى", "ابغا", "ودي", "اريد", "احتاج",
@@ -132,7 +128,6 @@ LOCATION_PHRASES = [
     "انا في", "انا موجود في", "متوفر في",
     "متواجد", "موجود", "متوفر",
     "موقعي في", "مكاني في", "انا عند",
-    "انا حول", "انا قريب من",
 ]
 
 GREETINGS = [
@@ -142,7 +137,7 @@ GREETINGS = [
     ),
     (
         ["هلا", "هلا والله", "اهلا", "مرحبا"],
-        ["هلا وغلا 🌹🚘", "يا هلا والله 👋", "حياك الله 🌹"],
+        ["هلا وغلا 🌹🚘", "يا هلا والله 👋"],
     ),
     (
         ["صباح الخير", "صباحكم خير"],
@@ -161,7 +156,7 @@ GREETINGS = [
 CHAT_RESPONSES = [
     (
         ["كيفك", "كيف حالك", "شلونك"],
-        ["بخير دامك بخير 🌹 وش أخبار المشاوير؟", "تمام وأنت؟ 😊"],
+        ["بخير دامك بخير 🌹", "تمام وأنت؟ 😊"],
     ),
     (
         ["وش تسوي", "وش قاعد تسوي"],
@@ -173,23 +168,19 @@ CHAT_RESPONSES = [
     ),
     (
         ["انت ذكي"],
-        ["ذكي جداً، أسألني أي شي 🧠", "أنا أذكى بوت مشاوير 😎"],
+        ["ذكي جداً 🧠", "أنا أذكى بوت مشاوير 😎"],
     ),
     (
         ["تزوجت", "متزوج"],
-        ["لا، أنا بوت متفرغ للمشاوير 😂", "أنا عازب سعيد 😎"],
+        ["لا، أنا بوت متفرغ للمشاوير 😂"],
     ),
     (
         ["وينك", "انت وين"],
-        ["هنا في القروب 🫡", "موجود بينكم 💛"],
+        ["هنا في القروب 🫡"],
     ),
     (
-        ["تنام", "تاكل", "تشرب"],
-        ["لا، أنا بوت شغال 24 ساعة ⚡", "أكلي كهرباء 🔋😂"],
-    ),
-    (
-        ["كم عمرك"],
-        ["عمري صغير، بس خبرتي كبيرة 🚕"],
+        ["تنام", "تاكل"],
+        ["لا، أنا بوت شغال 24 ساعة ⚡"],
     ),
     (
         ["سولف", "اسولف معك"],
@@ -197,30 +188,11 @@ CHAT_RESPONSES = [
     ),
     (
         ["نكت", "قول نكتة", "اضحكني"],
-        [
-            "مرة كابتن قال للعميل: اركب\nالعميل قال: ما أقدر\nالكابتن قال: ليه\nالعميل قال: لأني في البيت 😂",
-            "مرة كابتن راح ياخذ عميل... نسيه وراح 😂",
-        ]
+        ["مرة كابتن قال للعميل: اركب\nالعميل قال: ما أقدر\nالكابتن قال: ليه\nالعميل قال: لأني في البيت 😂"],
     ),
     (
         ["شسمك", "اسمك"],
-        ["اسمي بوت المشاوير 😎", "أنا صديقك الإلكتروني 🤖"],
-    ),
-    (
-        ["ولد", "بنت"],
-        ["أنا بوت... لا ولد ولا بنت 😂"],
-    ),
-    (
-        ["بيتك", "وين بيتك"],
-        ["بيتي في قلوب العملاء ❤️😂"],
-    ),
-    (
-        ["سيارتك", "عندك سيارة"],
-        ["سيارتي: كيبورد وماوس 😂"],
-    ),
-    (
-        ["جوعان", "مطعم", "اكل"],
-        ["جوعان؟ اطلب مشوار لأقرب مطعم 😂🚘"],
+        ["اسمي بوت المشاوير 😎"],
     ),
     (
         ["طفشان", "ملل", "زهقان"],
@@ -228,15 +200,11 @@ CHAT_RESPONSES = [
     ),
     (
         ["احبك", "حبيبي"],
-        ["حبيبي أنت 🌹", "أحبك بعد 🫶"],
+        ["حبيبي أنت 🌹"],
     ),
     (
         ["حزين", "زعلان", "تعبان"],
         ["لا تحزن، المشاوير تنسيك الهم 🚘"],
-    ),
-    (
-        ["سعيد", "مبسوط", "فرحان"],
-        ["الله يديم سعادتك 🌹"],
     ),
     (
         ["كم السعر", "بكم", "الاسعار"],
@@ -245,10 +213,6 @@ CHAT_RESPONSES = [
     (
         ["وين الكباتن", "الكباتن"],
         ["الكباتن موجودين 🚕 اكتب مشوارك!"],
-    ),
-    (
-        ["وين العملاء", "العملاء"],
-        ["العملاء هنا 🧑🏻‍💼 أعلن موقعك!"],
     ),
     (
         ["بوت", "يا بوت"],
@@ -260,11 +224,11 @@ CHAT_RESPONSES = [
     ),
     (
         ["مع السلامه", "باي"],
-        ["مع السلامة 🌹", "الله يحفظك 🚘"],
+        ["مع السلامة 🌹"],
     ),
     (
         ["ارحبو", "حي الله"],
-        ["الله يحييك 🌹", "أرحب يا غالي 🚘"],
+        ["الله يحييك 🌹"],
     ),
 ]
 
@@ -308,7 +272,6 @@ INAPPROPRIATE = [
 
 REMINDERS = [
     "🚘🔥 <b>يا كباتن وعملاء {GROUP_NAME}!</b>\n\nانشر رابط القروب 📢\n🔗 {GROUP_LINK}",
-    "🚕 <b>كباتننا وينكم؟ 😎</b>\n\nخلونا نزيد الطلبات 🚗",
 ]
 
 # ============================================================
@@ -426,13 +389,16 @@ class Database:
                 VALUES (?, ?, ?, ?, ?, ?)
             """, (message_id, customer_id, pickup, destination, trip_type, price))
             con.commit()
+            print(f"✅ تم حفظ الرحلة: message_id={message_id}, من={pickup}, إلى={destination}")
     
     def get_trip_by_message(self, message_id):
         with self.connect() as con:
             cur = con.cursor()
             cur.execute("SELECT * FROM trips WHERE message_id = ?", (message_id,))
             row = cur.fetchone()
-            return dict(row) if row else None
+            result = dict(row) if row else None
+            print(f"🔍 البحث عن message_id={message_id} → {result}")
+            return result
     
     def add_ready_driver(self, trip_id, driver_id):
         with self.connect() as con:
@@ -450,20 +416,9 @@ class Database:
     def add_violation(self, user_id):
         with self.connect() as con:
             cur = con.cursor()
-            cur.execute("SELECT violations, last_violation_at FROM users WHERE user_id = ?", (user_id,))
+            cur.execute("SELECT violations FROM users WHERE user_id = ?", (user_id,))
             row = cur.fetchone()
-            
             current = row[0] if row else 0
-            last_at = row[1] if row else None
-            
-            if last_at:
-                try:
-                    last_dt = datetime.fromisoformat(last_at)
-                    if (datetime.now(SAUDI_TZ) - last_dt).days >= VIOLATION_RESET_DAYS:
-                        current = 0
-                except:
-                    pass
-            
             count = current + 1
             cur.execute("UPDATE users SET violations = ?, last_violation_at = ? WHERE user_id = ?", (count, datetime.now(SAUDI_TZ).isoformat(), user_id))
             con.commit()
@@ -475,10 +430,8 @@ class Database:
             cur = con.cursor()
             cur.execute("SELECT last_date FROM driver_locations WHERE driver_id = ?", (driver_id,))
             row = cur.fetchone()
-            
             if row and row[0] == today:
                 return True
-            
             cur.execute("INSERT OR REPLACE INTO driver_locations (driver_id, last_date) VALUES (?, ?)", (driver_id, today))
             con.commit()
             return False
@@ -540,12 +493,10 @@ class SmartRidesBot:
     
     def get_chat_response(self, text):
         normalized = self.normalize_text(text)
-        
         for phrases, responses in CHAT_RESPONSES:
             for phrase in phrases:
                 if self.normalize_text(phrase) in normalized:
                     return random.choice(responses)
-        
         return None
     
     def looks_like_trip(self, text):
@@ -569,18 +520,11 @@ class SmartRidesBot:
     
     def violation_reason(self, text):
         normalized = self.normalize_text(text).strip()
-        
         if normalized in ["خاص", "الخاص"]:
             return "خاص"
-        
         for word in BAD_WORDS:
             if self.normalize_text(word) in normalized:
                 return "إساءة"
-        
-        for phrase in INAPPROPRIATE:
-            if self.normalize_text(phrase) in normalized:
-                return "كلام غير مناسب"
-        
         return None
     
     def is_forwarded(self, message):
@@ -594,34 +538,24 @@ class SmartRidesBot:
     def forbidden_link(self, text):
         if not text:
             return False
-        
         url_pattern = re.compile(r"(https?://\S+|www\.\S+|t\.me/\S+|telegram\.me/\S+)", re.IGNORECASE)
-        
         for link in url_pattern.findall(text):
-            link = link.rstrip(".,!?؟،؛:)]}>\"'")
             normalized = link.lower().rstrip("/")
-            
             if normalized.startswith(GROUP_LINK.lower().rstrip("/")):
                 continue
-            
             if any(domain in normalized for domain in ["maps.google.com", "goo.gl/maps", "maps.app.goo.gl"]):
                 continue
-            
             return True
-        
         return False
     
     async def is_admin(self, update, context):
         user = update.effective_user
         if not user:
             return False
-        
         if user.id in ADMIN_IDS:
             return True
-        
         if user.username and user.username.lower() in [u.lower() for u in ADMIN_USERNAMES]:
             return True
-        
         try:
             member = await context.bot.get_chat_member(GROUP_ID, user.id)
             return member.status in ["administrator", "creator"]
@@ -646,13 +580,10 @@ class SmartRidesBot:
     
     async def welcome_new_member(self, update, context):
         message = update.message
-        
         for member in message.new_chat_members:
             if member.is_bot:
                 continue
-            
             self.db.save_user(member)
-            
             welcome_text = f"""
 🌟 <b>يا هلا {self.html(member.full_name)}!</b>
 
@@ -667,7 +598,6 @@ class SmartRidesBot:
 ✍️ <b>للتسجيل:</b>
 اكتب «أنا كابتن» أو «أنا عميل»
             """
-            
             keyboard = InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton("👤 أنا عميل", callback_data=f"role_customer:{member.id}"),
@@ -678,37 +608,29 @@ class SmartRidesBot:
                     InlineKeyboardButton("📩 الإدارة", url=f"https://t.me/{ADMIN_USERNAME}"),
                 ],
             ])
-            
             await message.reply_text(welcome_text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
     
     async def role_selection(self, update, context):
         query = update.callback_query
         await query.answer()
-        
         data = query.data
         user = query.from_user
-        
         if data.startswith("role_customer:"):
             role = "customer"
         elif data.startswith("role_driver:"):
             role = "driver"
         else:
             return
-        
         target_id = int(data.split(":")[1])
-        
         if user.id != target_id and not await self.is_admin(update, context):
             await query.answer("هذا الزر مخصص للعضو الجديد فقط!", show_alert=True)
             return
-        
         self.db.save_user(user)
         self.db.set_role(target_id, role)
-        
         if role == "customer":
             confirm_text = "✅ <b>تم تسجيلك كعميل!</b>\n\nاكتب مشوارك مباشرة"
         else:
             confirm_text = "✅ <b>تم تسجيلك ككابتن!</b>\n\nاقتبس رسالة العميل واكتب «جاهز»"
-        
         await query.message.reply_text(confirm_text, parse_mode=ParseMode.HTML)
     
     async def show_rules(self, update, context):
@@ -724,34 +646,23 @@ class SmartRidesBot:
             return
         
         self.db.save_user(user)
-        
         text = message.text or ""
-        
         if not text:
             return
         
         self.db.add_points(user.id, POINTS_SYSTEM["message"])
-        
         normalized_text = self.normalize_text(text).strip()
         
         if normalized_text in ["انا كابتن", "انا سايق", "انا سواق"]:
             self.db.save_user(user)
             self.db.set_role(user.id, "driver")
-            await message.reply_text(
-                "✅ <b>تم تسجيلك ككابتن!</b>\n\n"
-                "اقتبس رسالة العميل واكتب «جاهز»",
-                parse_mode=ParseMode.HTML
-            )
+            await message.reply_text("✅ <b>تم تسجيلك ككابتن!</b>\n\nاقتبس رسالة العميل واكتب «جاهز»", parse_mode=ParseMode.HTML)
             return
         
         if normalized_text in ["انا عميل", "انا زبون", "انا طالب"]:
             self.db.save_user(user)
             self.db.set_role(user.id, "customer")
-            await message.reply_text(
-                "✅ <b>تم تسجيلك كعميل!</b>\n\n"
-                "اكتب طلبك مباشرة",
-                parse_mode=ParseMode.HTML
-            )
+            await message.reply_text("✅ <b>تم تسجيلك كعميل!</b>\n\nاكتب طلبك مباشرة", parse_mode=ParseMode.HTML)
             return
         
         if self.is_forwarded(message) and not await self.is_admin(update, context):
@@ -838,7 +749,7 @@ class SmartRidesBot:
 {price_text}
 
 🚕 <b>للكباتن:</b>
-اقتبسوا هذه الرسالة واكتبوا «جاهز»
+اقتبسوا رسالة العميل الأصلية واكتبوا «جاهز»
         """
         
         await message.reply_text(confirm_text, parse_mode=ParseMode.HTML)
@@ -847,25 +758,20 @@ class SmartRidesBot:
         message = update.message
         driver = update.effective_user
         
-        # ✅ لازم يكون فيه رد على رسالة
         if not message.reply_to_message:
             await message.reply_text(
-                "⚠️ <b>تنبيه!</b>\n\n"
-                "لأخذ مشوار، لازم <b>تقتبس رسالة العميل</b> "
-                "وترد عليها بكلمة «جاهز»",
+                "⚠️ لازم تقتبس رسالة العميل وترد «جاهز»",
                 parse_mode=ParseMode.HTML
             )
             return
         
         replied_message = message.reply_to_message
-        
-        # البحث عن الرحلة
         trip = self.db.get_trip_by_message(replied_message.message_id)
         
         if not trip:
             await message.reply_text(
                 "⚠️ هذه ليست رسالة طلب مشوار!\n"
-                "رد على رسالة العميل الأصلية",
+                "رد على رسالة العميل الأصلية بالضبط",
                 parse_mode=ParseMode.HTML
             )
             return
@@ -909,7 +815,6 @@ class SmartRidesBot:
         ])
         
         await message.reply_text(card_text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
-        
         await message.reply_text(random.choice(READY_MESSAGES), parse_mode=ParseMode.HTML)
     
     async def handle_location(self, update, context, text):
@@ -917,27 +822,19 @@ class SmartRidesBot:
         driver = update.effective_user
         
         if not self.db.is_driver(driver.id):
-            await message.reply_text(
-                "📍 هذا الإعلان مخصص للكباتن فقط 🚕\n\n"
-                "إذا أنت كابتن اضغط «🚕 أنا كابتن» مرة واحدة",
-                parse_mode=ParseMode.HTML
-            )
+            await message.reply_text("📍 هذا الإعلان مخصص للكباتن فقط 🚕", parse_mode=ParseMode.HTML)
             return
         
         already_posted = self.db.check_location_today(driver.id)
         
         if already_posted:
-            await message.reply_text(
-                "😂 عرفنا وينك اليوم.\n\n📍 إعلان التواجد مسموح مرة واحدة فقط باليوم",
-                parse_mode=ParseMode.HTML
-            )
+            await message.reply_text("😂 عرفنا وينك اليوم.\n\n📍 مرة واحدة فقط باليوم", parse_mode=ParseMode.HTML)
             return
         
         await message.reply_text(
             f"📍 <b>تم تسجيل تواجد الكابتن</b>\n\n"
             f"{self.display_user(driver)}\n\n"
-            f"📌 {self.html(text)}\n\n"
-            f"🚕 تم تسجيل موقعك، الله يرزقك مشوار طيب",
+            f"📌 {self.html(text)}",
             parse_mode=ParseMode.HTML
         )
     
@@ -960,36 +857,19 @@ class SmartRidesBot:
                     permissions=ChatPermissions(can_send_messages=False),
                     until_date=until
                 )
-                await context.bot.send_message(
-                    GROUP_ID,
-                    f"🔇 <b>تم كتم العضو</b>\n\n{self.display_user(user)}\n\n🔴 المخالفة رقم <b>{count}</b>",
-                    parse_mode=ParseMode.HTML
-                )
+                await context.bot.send_message(GROUP_ID, f"🔇 <b>تم كتم العضو</b>\n\n{self.display_user(user)}", parse_mode=ParseMode.HTML)
             except:
                 pass
         elif count == 3:
-            await context.bot.send_message(
-                GROUP_ID,
-                f"🔴 <b>المخالفة الثالثة</b>\n\n{self.display_user(user)}",
-                parse_mode=ParseMode.HTML
-            )
+            await context.bot.send_message(GROUP_ID, f"🔴 <b>المخالفة الثالثة</b>\n\n{self.display_user(user)}", parse_mode=ParseMode.HTML)
         elif count == 2:
-            await context.bot.send_message(
-                GROUP_ID,
-                f"🟠 <b>المخالفة الثانية</b>\n\n{self.display_user(user)}",
-                parse_mode=ParseMode.HTML
-            )
+            await context.bot.send_message(GROUP_ID, f"🟠 <b>المخالفة الثانية</b>\n\n{self.display_user(user)}", parse_mode=ParseMode.HTML)
         else:
-            await context.bot.send_message(
-                GROUP_ID,
-                f"🟡 <b>تنبيه للمرة الأولى</b>\n\n{self.display_user(user)}",
-                parse_mode=ParseMode.HTML
-            )
+            await context.bot.send_message(GROUP_ID, f"🟡 <b>تنبيه للمرة الأولى</b>\n\n{self.display_user(user)}", parse_mode=ParseMode.HTML)
     
     async def contact_customer(self, update, context):
         query = update.callback_query
         user = query.from_user
-        
         data = query.data.split(":")
         trip_id = int(data[1])
         driver_id = int(data[2])
@@ -1014,7 +894,6 @@ class SmartRidesBot:
     async def contact_driver(self, update, context):
         query = update.callback_query
         user = query.from_user
-        
         data = query.data.split(":")
         trip_id = int(data[1])
         driver_id = int(data[2])
@@ -1034,10 +913,7 @@ class SmartRidesBot:
     async def cmd_start(self, update, context):
         await update.message.reply_text(
             f"🚘 <b>أهلاً بك في {GROUP_NAME}</b>\n\n"
-            "🤖 البوت يعمل بنجاح ✅\n\n"
-            "📋 /rules - القوانين\n"
-            "ℹ️ /help - المساعدة\n"
-            "🏆 /top - لوحة الصدارة",
+            "🤖 البوت يعمل بنجاح ✅",
             parse_mode=ParseMode.HTML
         )
     
@@ -1045,92 +921,49 @@ class SmartRidesBot:
         await update.message.reply_text(RULES_TEXT, parse_mode=ParseMode.HTML)
     
     async def cmd_help(self, update, context):
-        help_text = f"""
-🤖 <b>طريقة استخدام البوت</b>
-
-👤 <b>للعميل:</b>
-اكتب مشوارك مباشرة:
-«مشوار من الفضيلة إلى الرغامة»
-
-🚕 <b>للكابتن:</b>
-اقتبس رسالة العميل واكتب «جاهز»
-
-✍️ <b>التسجيل:</b>
-اكتب «أنا كابتن» أو «أنا عميل»
-
-📩 <b>الإدارة:</b> @{ADMIN_USERNAME}
-        """
-        await update.message.reply_text(help_text, parse_mode=ParseMode.HTML)
+        await update.message.reply_text(
+            "👤 <b>عميل:</b> اكتب «مشوار من X إلى Y»\n"
+            "🚕 <b>كابتن:</b> اقتبس رسالة العميل واكتب «جاهز»",
+            parse_mode=ParseMode.HTML
+        )
     
     async def cmd_top(self, update, context):
         rows = self.db.get_top_users(10)
-        
         if not rows:
             await update.message.reply_text("📊 لا يوجد نقاط بعد!")
             return
-        
         text = "🏆 <b>لوحة الصدارة</b>\n\n"
-        
         medals = ["🥇", "🥈", "🥉"]
-        
         for i, row in enumerate(rows):
             medal = medals[i] if i < 3 else f"{i+1}️⃣"
             text += f"{medal} {self.html(row['name'])} - {row['points']} نقطة\n"
-        
         await update.message.reply_text(text, parse_mode=ParseMode.HTML)
     
     async def smart_reminder(self, context):
         current_hour = datetime.now(SAUDI_TZ).hour
-        
         if 2 <= current_hour < 8:
             return
-        
-        text = random.choice(REMINDERS).format(
-            GROUP_NAME=GROUP_NAME,
-            GROUP_LINK=GROUP_LINK
-        )
-        
+        text = random.choice(REMINDERS).format(GROUP_NAME=GROUP_NAME, GROUP_LINK=GROUP_LINK)
         try:
-            await context.bot.send_message(
-                chat_id=GROUP_ID,
-                text=text,
-                parse_mode=ParseMode.HTML,
-                disable_web_page_preview=True
-            )
+            await context.bot.send_message(chat_id=GROUP_ID, text=text, parse_mode=ParseMode.HTML)
         except:
             pass
     
     async def engagement_reminder(self, context):
         current_hour = datetime.now(SAUDI_TZ).hour
-        
         if 2 <= current_hour < 7:
             return
-        
         text = random.choice(ENGAGEMENT_MESSAGES)
-        
         try:
-            await context.bot.send_message(
-                chat_id=GROUP_ID,
-                text=text,
-                parse_mode=ParseMode.HTML
-            )
+            await context.bot.send_message(chat_id=GROUP_ID, text=text, parse_mode=ParseMode.HTML)
         except:
             pass
     
     def run(self):
         app = Application.builder().token(TOKEN).build()
         
-        app.job_queue.run_repeating(
-            self.engagement_reminder,
-            interval=ENGAGEMENT_INTERVAL,
-            first=60
-        )
-        
-        app.job_queue.run_repeating(
-            self.smart_reminder,
-            interval=REMINDER_INTERVAL,
-            first=REMINDER_INTERVAL
-        )
+        app.job_queue.run_repeating(self.engagement_reminder, interval=ENGAGEMENT_INTERVAL, first=60)
+        app.job_queue.run_repeating(self.smart_reminder, interval=REMINDER_INTERVAL, first=REMINDER_INTERVAL)
         
         app.add_handler(CommandHandler("start", self.cmd_start))
         app.add_handler(CommandHandler("rules", self.cmd_rules))
