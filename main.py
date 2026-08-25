@@ -127,7 +127,9 @@ def db():
 
 
 def init_db():
+
     with db() as con:
+
         cur = con.cursor()
 
         cur.execute("""
@@ -149,12 +151,6 @@ def init_db():
             )
         """)
 
-        # ====================================================
-        # طلبات العملاء
-        #
-        # message_id = رقم رسالة العميل الأصلية
-        # ====================================================
-
         cur.execute("""
             CREATE TABLE IF NOT EXISTS trips (
                 message_id INTEGER PRIMARY KEY,
@@ -167,12 +163,6 @@ def init_db():
             )
         """)
 
-        # ====================================================
-        # الكباتن الجاهزين
-        #
-        # يسمح لأكثر من كابتن لنفس الطلب
-        # ====================================================
-
         cur.execute("""
             CREATE TABLE IF NOT EXISTS ready (
                 trip_id INTEGER,
@@ -182,36 +172,49 @@ def init_db():
         """)
 
         cur.execute("PRAGMA table_info(users)")
-        columns = [row[1] for row in cur.fetchall()]
+
+        columns = [
+            row[1]
+            for row in cur.fetchall()
+        ]
 
         if "is_driver" not in columns:
+
             cur.execute("""
                 ALTER TABLE users
                 ADD COLUMN is_driver INTEGER DEFAULT 0
             """)
 
         if "is_customer" not in columns:
+
             cur.execute("""
                 ALTER TABLE users
                 ADD COLUMN is_customer INTEGER DEFAULT 0
             """)
 
         if "violations" not in columns:
+
             cur.execute("""
                 ALTER TABLE users
                 ADD COLUMN violations INTEGER DEFAULT 0
             """)
 
         if "last_violation_at" not in columns:
+
             cur.execute("""
                 ALTER TABLE users
                 ADD COLUMN last_violation_at TEXT
             """)
 
         cur.execute("PRAGMA table_info(trips)")
-        trip_columns = [row[1] for row in cur.fetchall()]
+
+        trip_columns = [
+            row[1]
+            for row in cur.fetchall()
+        ]
 
         if "customer_username" not in trip_columns:
+
             cur.execute("""
                 ALTER TABLE trips
                 ADD COLUMN customer_username TEXT DEFAULT ''
@@ -225,10 +228,12 @@ def init_db():
 # ============================================================
 
 def save_user(user):
+
     if not user:
         return
 
     with db() as con:
+
         cur = con.cursor()
 
         cur.execute("""
@@ -253,9 +258,11 @@ def save_user(user):
 
 
 def mark_driver(user):
+
     save_user(user)
 
     with db() as con:
+
         cur = con.cursor()
 
         cur.execute("""
@@ -269,9 +276,11 @@ def mark_driver(user):
 
 
 def mark_customer(user):
+
     save_user(user)
 
     with db() as con:
+
         cur = con.cursor()
 
         cur.execute("""
@@ -285,7 +294,9 @@ def mark_customer(user):
 
 
 def mark_driver_by_id(user_id):
+
     with db() as con:
+
         cur = con.cursor()
 
         cur.execute("""
@@ -299,7 +310,9 @@ def mark_driver_by_id(user_id):
 
 
 def mark_customer_by_id(user_id):
+
     with db() as con:
+
         cur = con.cursor()
 
         cur.execute("""
@@ -313,7 +326,9 @@ def mark_customer_by_id(user_id):
 
 
 def get_user_info(user_id):
+
     with db() as con:
+
         cur = con.cursor()
 
         cur.execute("""
@@ -326,7 +341,9 @@ def get_user_info(user_id):
 
 
 def is_driver(user_id):
+
     with db() as con:
+
         cur = con.cursor()
 
         cur.execute("""
@@ -337,11 +354,15 @@ def is_driver(user_id):
 
         row = cur.fetchone()
 
-    return bool(row and row[0] == 1)
+    return bool(
+        row and row[0] == 1
+    )
 
 
 def is_customer(user_id):
+
     with db() as con:
+
         cur = con.cursor()
 
         cur.execute("""
@@ -352,11 +373,15 @@ def is_customer(user_id):
 
         row = cur.fetchone()
 
-    return bool(row and row[0] == 1)
+    return bool(
+        row and row[0] == 1
+    )
 
 
 def get_username(user_id):
+
     with db() as con:
+
         cur = con.cursor()
 
         cur.execute("""
@@ -367,7 +392,11 @@ def get_username(user_id):
 
         row = cur.fetchone()
 
-    return row[0] if row and row[0] else ""
+    return (
+        row[0]
+        if row and row[0]
+        else ""
+    )
 
 
 # ============================================================
@@ -404,14 +433,21 @@ def clean_text(text):
         return ""
 
     text = text.replace("\n", " ")
-    text = re.sub(r"\s+", " ", text)
+
+    text = re.sub(
+        r"\s+",
+        " ",
+        text,
+    )
 
     return text.strip()
 
 
 def normalize_arabic(text):
 
-    text = clean_text(text).lower()
+    text = clean_text(
+        text
+    ).lower()
 
     replacements = {
         "أ": "ا",
@@ -424,13 +460,17 @@ def normalize_arabic(text):
     }
 
     for old, new in replacements.items():
-        text = text.replace(old, new)
+
+        text = text.replace(
+            old,
+            new,
+        )
 
     return text
 
 
 # ============================================================
-# عرض اسم العضو مع الوسم
+# عرض اسم العضو
 # ============================================================
 
 def display_user(user):
@@ -438,33 +478,49 @@ def display_user(user):
     if not user:
         return "عضو"
 
-    name = html(user.full_name)
-    badge = get_role_badge(user.id)
+    name = html(
+        user.full_name
+    )
+
+    badge = get_role_badge(
+        user.id
+    )
 
     if badge:
-        return f"<b>{html(badge)} {name}</b>"
+
+        return (
+            f"<b>{html(badge)} "
+            f"{name}</b>"
+        )
 
     return f"<b>{name}</b>"
 
 
 def display_saved_user(user_id):
 
-    row = get_user_info(user_id)
+    row = get_user_info(
+        user_id
+    )
 
     if not row:
         return "العضو"
 
     _, name, _ = row
 
-    badge = get_role_badge(user_id)
+    badge = get_role_badge(
+        user_id
+    )
 
     if badge:
+
         return (
             f"<b>{html(badge)} "
             f"{html(name or 'عضو')}</b>"
         )
 
-    return f"<b>{html(name or 'عضو')}</b>"
+    return (
+        f"<b>{html(name or 'عضو')}</b>"
+    )
 
 
 # ============================================================
@@ -483,6 +539,7 @@ def is_owner(user):
         return True
 
     if user.username:
+
         return (
             user.username.lower()
             == OWNER_USERNAME.lower()
@@ -491,7 +548,10 @@ def is_owner(user):
     return False
 
 
-async def is_admin(update, context):
+async def is_admin(
+    update,
+    context,
+):
 
     user = update.effective_user
 
@@ -501,9 +561,13 @@ async def is_admin(update, context):
     if is_owner(user):
         return True
 
-    now = datetime.now(SAUDI_TZ)
+    now = datetime.now(
+        SAUDI_TZ
+    )
 
-    cached = _admin_cache.get(user.id)
+    cached = _admin_cache.get(
+        user.id
+    )
 
     if cached:
 
@@ -511,7 +575,8 @@ async def is_admin(update, context):
 
         if (
             now - checked_at
-        ).total_seconds() < ADMIN_CACHE_SECONDS:
+        ).total_seconds()
+        < ADMIN_CACHE_SECONDS:
 
             return cached_value
 
@@ -560,7 +625,7 @@ RULES = f"""
 
 6️⃣ 🚫 يمنع السب والإساءة.
 
-7️⃣ 🚫 يمنع نشر الإعلانات والروابط.
+7️⃣ 🚫 يمنع نشر الإعلانات والروابط غير المسموحة.
 
 8️⃣ 🔄 الرسائل المحولة ممنوعة.
 
@@ -589,14 +654,19 @@ RULES = f"""
 # WELCOME
 # ============================================================
 
-async def welcome(update, context):
+async def welcome(
+    update,
+    context,
+):
 
     message = update.message
 
     if not message:
         return
 
-    for member in message.new_chat_members or []:
+    for member in (
+        message.new_chat_members or []
+    ):
 
         if member.is_bot:
             continue
@@ -607,11 +677,15 @@ async def welcome(update, context):
             [
                 InlineKeyboardButton(
                     "🧑🏻‍💼 أنا عميل",
-                    callback_data=f"role_customer:{member.id}",
+                    callback_data=(
+                        f"role_customer:{member.id}"
+                    ),
                 ),
                 InlineKeyboardButton(
                     "🚕 أنا كابتن",
-                    callback_data=f"role_driver:{member.id}",
+                    callback_data=(
+                        f"role_driver:{member.id}"
+                    ),
                 ),
             ],
             [
@@ -621,23 +695,29 @@ async def welcome(update, context):
                 ),
                 InlineKeyboardButton(
                     "📩 الإدارة",
-                    url=f"https://t.me/{ADMIN_USERNAME}",
+                    url=(
+                        f"https://t.me/{ADMIN_USERNAME}"
+                    ),
                 ),
             ],
             [
                 InlineKeyboardButton(
                     "📝 الشكاوى والاقتراحات",
-                    callback_data=f"complaint:{member.id}",
+                    callback_data=(
+                        f"complaint:{member.id}"
+                    ),
                 ),
             ],
         ])
 
         await message.reply_text(
+
             f"👋 يا هلا {display_user(member)} 🌹\n\n"
             f"نورت {GROUP_NAME} 🚘\n\n"
 
             "🧑🏻‍💼 <b>إذا كنت عميل:</b>\n"
             "اضغط «أنا عميل» مرة واحدة، وبعدها اكتب مشوارك مباشرة في القروب.\n\n"
+
             "مثال:\n"
             "السلام عليكم، أبغى مشوار من الحمدانية إلى المطار الساعة 5.\n\n"
 
@@ -647,6 +727,7 @@ async def welcome(update, context):
 
             "🤖 البوت بعدها يرسل لك كرت التواصل مع العميل.\n"
             "ولا تحتاج تسجل نفسك ككابتن كل مرة.",
+
             parse_mode=ParseMode.HTML,
             reply_markup=keyboard,
         )
@@ -656,14 +737,19 @@ async def welcome(update, context):
 # MEMBER LEFT
 # ============================================================
 
-async def member_left_handler(update, context):
+async def member_left_handler(
+    update,
+    context,
+):
 
     message = update.message
 
     if not message:
         return
 
-    left_member = message.left_chat_member
+    left_member = (
+        message.left_chat_member
+    )
 
     if not left_member:
         return
@@ -681,13 +767,22 @@ async def member_left_handler(update, context):
         )
 
         if member.status == "kicked":
-            action_text = "🚫 تم إخراجه من القروب"
+
+            action_text = (
+                "🚫 تم إخراجه من القروب"
+            )
+
         else:
-            action_text = "👋 غادر القروب"
+
+            action_text = (
+                "👋 غادر القروب"
+            )
 
     except Exception:
 
-        action_text = "👋 غادر القروب"
+        action_text = (
+            "👋 غادر القروب"
+        )
 
     username_text = ""
 
@@ -698,7 +793,9 @@ async def member_left_handler(update, context):
             f"@{html(left_member.username)}"
         )
 
-    badge = get_role_badge(left_member.id)
+    badge = get_role_badge(
+        left_member.id
+    )
 
     badge_text = ""
 
@@ -712,19 +809,28 @@ async def member_left_handler(update, context):
     try:
 
         await context.bot.send_message(
+
             chat_id=OWNER_ID,
+
             text=(
                 "🚨 <b>تنبيه مغادرة عضو</b>\n\n"
+
                 f"👤 <b>الاسم:</b> "
                 f"{html(left_member.full_name)}"
+
                 f"{username_text}"
+
                 f"{badge_text}\n"
+
                 f"🆔 <b>ID:</b> "
                 f"<code>{left_member.id}</code>\n\n"
+
                 f"{action_text}\n"
+
                 f"📍 <b>القروب:</b> "
                 f"{html(GROUP_NAME)}"
             ),
+
             parse_mode=ParseMode.HTML,
         )
 
@@ -740,33 +846,48 @@ async def member_left_handler(update, context):
 # COMMANDS
 # ============================================================
 
-async def start(update, context):
+async def start(
+    update,
+    context,
+):
 
     if not update.message:
         return
 
     await update.message.reply_text(
+
         f"🚘 أهلاً بك في {GROUP_NAME}\n\n"
+
         "🤖 البوت يعمل بنجاح ✅\n\n"
+
         "📋 /rules — القوانين\n"
         "ℹ️ /help — المساعدة"
     )
 
 
-async def rules(update, context):
-
-    if not update.message:
-        return
-
-    await update.message.reply_text(RULES)
-
-
-async def help_command(update, context):
+async def rules(
+    update,
+    context,
+):
 
     if not update.message:
         return
 
     await update.message.reply_text(
+        RULES
+    )
+
+
+async def help_command(
+    update,
+    context,
+):
+
+    if not update.message:
+        return
+
+    await update.message.reply_text(
+
         "🤖 طريقة استخدام القروب:\n\n"
 
         "🧑🏻‍💼 العميل:\n"
@@ -790,6 +911,7 @@ async def help_command(update, context):
 # ============================================================
 
 GREETINGS = [
+
     (
         [
             "السلام عليكم",
@@ -803,6 +925,7 @@ GREETINGS = [
             "وعليكم السلام، نورت القروب 🌹🚘",
         ],
     ),
+
     (
         [
             "هلا",
@@ -821,6 +944,7 @@ GREETINGS = [
             "حياك الله ونورتنا 🌹",
         ],
     ),
+
     (
         [
             "صباح الخير",
@@ -832,6 +956,7 @@ GREETINGS = [
             "صباح الخير يا أهل المشاوير ☀️",
         ],
     ),
+
     (
         [
             "مساء الخير",
@@ -843,6 +968,7 @@ GREETINGS = [
             "مساءكم طيب يا جماعة الخير ❤️",
         ],
     ),
+
     (
         [
             "شكرا",
@@ -861,16 +987,23 @@ GREETINGS = [
 
 def get_greeting(text):
 
-    normalized = normalize_arabic(text)
+    normalized = normalize_arabic(
+        text
+    )
 
     for phrases, responses in GREETINGS:
 
         for phrase in phrases:
 
-            p = normalize_arabic(phrase)
+            p = normalize_arabic(
+                phrase
+            )
 
             if normalized.startswith(p):
-                return random.choice(responses)
+
+                return random.choice(
+                    responses
+                )
 
     return None
 
@@ -897,7 +1030,9 @@ DRIVER_READY_PHRASES = [
 
 def is_driver_ready(text):
 
-    normalized = normalize_arabic(text)
+    normalized = normalize_arabic(
+        text
+    )
 
     phrases = [
         normalize_arabic(x)
@@ -908,12 +1043,19 @@ def is_driver_ready(text):
 
 
 READY_MESSAGES = [
+
     "رافقتك السلامة يا كابتن 🚕🌹",
+
     "الله يوفقك ويرزقك مشوار طيب 🤲🚘",
+
     "على بركة الله يا كابتن، رافقتك السلامة 🌹",
+
     "الله يرزقك ويرزق العميل، مشوار موفق 🚕✨",
+
     "بيض الله وجهك يا كابتن، الله يوفقك 🤲",
+
     "تم تسجيل جاهزيتك، رزقك الله بالمشوار الطيب 🚘🌹",
+
     "الله يفتحها بوجهك ويرزقك من واسع فضله 🤲🚕",
 ]
 
@@ -923,6 +1065,7 @@ READY_MESSAGES = [
 # ============================================================
 
 LOCATION_PHRASES = [
+
     "متواجد في",
     "متواجد ب",
     "موجود في",
@@ -940,7 +1083,9 @@ LOCATION_PHRASES = [
     "متوفر ب",
 ]
 
+
 LOCATION_END_PHRASES = [
+
     "لاي مشوار",
     "لاي مشاوير",
     "لأي مشوار",
@@ -954,10 +1099,15 @@ LOCATION_END_PHRASES = [
 
 def is_location(text):
 
-    normalized = normalize_arabic(text)
+    normalized = normalize_arabic(
+        text
+    )
 
     has_location_phrase = any(
-        normalize_arabic(phrase) in normalized
+
+        normalize_arabic(phrase)
+        in normalized
+
         for phrase in LOCATION_PHRASES
     )
 
@@ -965,9 +1115,11 @@ def is_location(text):
         return True
 
     if re.search(
-        r"(?:متواجد|موجود|متوفر)\s+(?:حاليا\s+)?(?:في|ب)\s+",
+        r"(?:متواجد|موجود|متوفر)\s+"
+        r"(?:حاليا\s+)?(?:في|ب)\s+",
         normalized,
     ):
+
         return True
 
     return False
@@ -975,20 +1127,29 @@ def is_location(text):
 
 def looks_like_driver_location(text):
 
-    normalized = normalize_arabic(text)
+    normalized = normalize_arabic(
+        text
+    )
 
     if not is_location(text):
         return False
 
     for phrase in LOCATION_END_PHRASES:
 
-        if normalize_arabic(phrase) in normalized:
+        if (
+            normalize_arabic(phrase)
+            in normalized
+        ):
+
             return True
 
     return True
 
 
-async def handle_location(update, context):
+async def handle_location(
+    update,
+    context,
+):
 
     message = update.message
     user = update.effective_user
@@ -996,19 +1157,26 @@ async def handle_location(update, context):
     if not message or not user:
         return False
 
-    text = clean_text(message.text or "")
+    text = clean_text(
+        message.text or ""
+    )
 
     if not text:
         return False
 
-    if not looks_like_driver_location(text):
+    if not looks_like_driver_location(
+        text
+    ):
         return False
 
-    driver_registered = is_driver(user.id)
+    driver_registered = is_driver(
+        user.id
+    )
 
     if not driver_registered:
 
         auto_driver_phrases = [
+
             "لاي مشوار",
             "لاي مشاوير",
             "لأي مشوار",
@@ -1018,19 +1186,28 @@ async def handle_location(update, context):
             "متوفر لأي مشوار",
         ]
 
-        normalized = normalize_arabic(text)
+        normalized = normalize_arabic(
+            text
+        )
 
         if any(
-            normalize_arabic(p) in normalized
+
+            normalize_arabic(p)
+            in normalized
+
             for p in auto_driver_phrases
         ):
+
             mark_driver(user)
+
             driver_registered = True
 
     if not driver_registered:
 
         await message.reply_text(
+
             "📍 هذا الإعلان مخصص للكباتن فقط 🚕\n\n"
+
             "إذا أنت كابتن اضغط «🚕 أنا كابتن» مرة واحدة، "
             "وبعدها البوت بيتعرف عليك تلقائيًا."
         )
@@ -1077,17 +1254,24 @@ async def handle_location(update, context):
     if already:
 
         await message.reply_text(
+
             "😂 عرفنا وينك اليوم.\n\n"
+
             "📍 إعلان التواجد مسموح مرة واحدة فقط باليوم."
         )
 
         return True
 
     await message.reply_text(
+
         f"📍 <b>تم تسجيل تواجد الكابتن</b>\n\n"
+
         f"{display_user(user)}\n\n"
+
         f"📌 {html(text)}\n\n"
+
         "🚕 تم تسجيل موقعك، الله يرزقك مشوار طيب.",
+
         parse_mode=ParseMode.HTML,
     )
 
@@ -1099,6 +1283,7 @@ async def handle_location(update, context):
 # ============================================================
 
 TRIP_PHRASES = [
+
     "ابغى مشوار",
     "ابغا مشوار",
     "ابي مشوار",
@@ -1137,24 +1322,34 @@ def looks_like_trip(text):
     if not text:
         return False
 
-    normalized = normalize_arabic(text)
+    normalized = normalize_arabic(
+        text
+    )
 
-    if looks_like_driver_location(text):
+    if looks_like_driver_location(
+        text
+    ):
         return False
 
     for phrase in TRIP_PHRASES:
 
-        if normalize_arabic(phrase) in normalized:
+        if (
+            normalize_arabic(phrase)
+            in normalized
+        ):
+
             return True
 
     if "→" in text or "->" in text:
         return True
 
     if re.search(
-        r"\bمن\s+.+?\s+(?:الى|الي|إلى|إلي)\s+.+",
+        r"\bمن\s+.+?\s+"
+        r"(?:الى|الي|إلى|إلي)\s+.+",
         text,
         re.IGNORECASE,
     ):
+
         return True
 
     return False
@@ -1162,18 +1357,27 @@ def looks_like_trip(text):
 
 def extract_route(text):
 
-    original = clean_text(text)
+    original = clean_text(
+        text
+    )
 
     match = re.search(
-        r"من\s+(.+?)\s+(?:الى|إلى|إلي|الي)\s+(.+)",
+
+        r"من\s+(.+?)\s+"
+        r"(?:الى|إلى|إلي|الي)\s+(.+)",
+
         original,
+
         re.IGNORECASE,
     )
 
     if match:
 
         start = match.group(1).strip()
-        destination = match.group(2).strip()
+
+        destination = (
+            match.group(2).strip()
+        )
 
         return start, destination
 
@@ -1193,27 +1397,42 @@ def extract_route(text):
         if len(parts) == 2:
 
             start = parts[0].strip()
-            destination = parts[1].strip()
 
-            if len(start) >= 2 and len(destination) >= 2:
+            destination = (
+                parts[1].strip()
+            )
+
+            if (
+                len(start) >= 2
+                and len(destination) >= 2
+            ):
 
                 start = re.sub(
+
                     r"^(ابغى|ابغا|ابي|احتاج|محتاج|مشوار|توصيل)\s+",
+
                     "",
+
                     start,
+
                     flags=re.IGNORECASE,
                 )
 
-                return start, destination
+                return (
+                    start,
+                    destination,
+                )
 
     return None, None
 
 
 # ============================================================
-# تسجيل رسالة العميل الأصلية كطلب
+# تسجيل رسالة العميل الأصلية
 # ============================================================
 
-async def register_trip_message(message):
+async def register_trip_message(
+    message
+):
 
     customer = message.from_user
 
@@ -1227,7 +1446,9 @@ async def register_trip_message(message):
     if not text:
         return
 
-    start, destination = extract_route(text)
+    start, destination = extract_route(
+        text
+    )
 
     with db() as con:
 
@@ -1248,7 +1469,9 @@ async def register_trip_message(message):
             message.message_id,
             customer.id,
             customer.username or "",
-            datetime.now(SAUDI_TZ).isoformat(),
+            datetime.now(
+                SAUDI_TZ
+            ).isoformat(),
             start or "",
             destination or "",
             text,
@@ -1258,7 +1481,7 @@ async def register_trip_message(message):
 
 
 # ============================================================
-# التأكد أن الرسالة الأصلية طلب عميل
+# الحصول على المشوار
 # ============================================================
 
 def get_trip(trip_id):
@@ -1284,7 +1507,7 @@ def get_trip(trip_id):
 
 
 # ============================================================
-# 🚕 إنشاء كرت الكابتن الجاهز
+# 🚕 إنشاء كرت الكابتن
 # ============================================================
 
 async def create_ready_card(
@@ -1294,10 +1517,6 @@ async def create_ready_card(
     driver,
     trip_id,
 ):
-
-    # ========================================================
-    # لا نكرر الكابتن لنفس الطلب
-    # ========================================================
 
     with db() as con:
 
@@ -1316,7 +1535,6 @@ async def create_ready_card(
         already_ready = cur.fetchone()
 
         if already_ready:
-
             return False
 
         cur.execute("""
@@ -1332,42 +1550,53 @@ async def create_ready_card(
 
         con.commit()
 
-    # ========================================================
-    # أزرار التواصل
-    #
-    # callback وليس URL مباشر
-    # حتى نتحقق من الشخص الذي ضغط الزر
-    # ========================================================
-
     keyboard = InlineKeyboardMarkup([
+
         [
             InlineKeyboardButton(
                 "📩 تواصل مع العميل",
                 callback_data=(
-                    f"contact_customer:{trip_id}:{driver.id}"
+                    f"contact_customer:"
+                    f"{trip_id}:"
+                    f"{driver.id}"
                 ),
             ),
+
             InlineKeyboardButton(
                 "🚕 تواصل مع الكابتن",
                 callback_data=(
-                    f"contact_driver:{trip_id}:{driver.id}"
+                    f"contact_driver:"
+                    f"{trip_id}:"
+                    f"{driver.id}"
                 ),
             ),
         ]
+
     ])
 
-    driver_name = html(driver.full_name)
+    driver_name = html(
+        driver.full_name
+    )
 
     await context.bot.send_message(
+
         chat_id=GROUP_ID,
+
         text=(
+
             "🚕 <b>كابتن قريب منك</b>\n\n"
+
             f"👨‍✈️ <b>{driver_name}</b>\n\n"
+
             "تم تسجيل جاهزية الكابتن لهذا الطلب ✅\n"
+
             "💰 السعر والتفاهم بالخاص."
         ),
+
         parse_mode=ParseMode.HTML,
+
         reply_markup=keyboard,
+
         reply_to_message_id=trip_id,
     )
 
@@ -1375,10 +1604,13 @@ async def create_ready_card(
 
 
 # ============================================================
-# 🚕 READY — الكابتن يرد على رسالة العميل
+# 🚕 READY
 # ============================================================
 
-async def handle_ready_reply(update, context):
+async def handle_ready_reply(
+    update,
+    context,
+):
 
     message = update.message
     driver = update.effective_user
@@ -1386,26 +1618,20 @@ async def handle_ready_reply(update, context):
     if not message or not driver:
         return False
 
-    text = clean_text(message.text or "")
+    text = clean_text(
+        message.text or ""
+    )
 
     if not is_driver_ready(text):
         return False
 
-    # ========================================================
-    # لازم يكون الرد Reply على رسالة
-    # ========================================================
-
-    replied = message.reply_to_message
+    replied = (
+        message.reply_to_message
+    )
 
     if not replied:
 
-        # إذا كتب جاهز بدون رد، لا نعتبرها مشوار
         return False
-
-    # ========================================================
-    # لا نسمح للرد على بطاقة البوت القديمة
-    # لازم الرد يكون على رسالة العميل الأصلية
-    # ========================================================
 
     original_message = replied
 
@@ -1414,40 +1640,50 @@ async def handle_ready_reply(update, context):
         if original_message.from_user.is_bot:
 
             await message.reply_text(
-                "🚕 إذا تبي تأخذ مشوار، رد على <b>رسالة العميل الأصلية</b> "
+
+                "🚕 إذا تبي تأخذ مشوار، رد على "
+                "<b>رسالة العميل الأصلية</b> "
                 "واكتب «جاهز».",
+
                 parse_mode=ParseMode.HTML,
             )
 
             return True
 
-    trip_id = original_message.message_id
+    trip_id = (
+        original_message.message_id
+    )
 
-    trip = get_trip(trip_id)
-
-    # ========================================================
-    # إذا لم يكن مسجلًا في قاعدة البيانات، نفحص الرسالة نفسها
-    # ========================================================
+    trip = get_trip(
+        trip_id
+    )
 
     if not trip:
 
         original_text = (
+
             original_message.text
             or original_message.caption
             or ""
         )
 
-        if not looks_like_trip(original_text):
+        if not looks_like_trip(
+            original_text
+        ):
 
             await message.reply_text(
+
                 "🚕 هذه ليست رسالة طلب مشوار مسجلة.\n\n"
+
                 "رد على رسالة العميل التي فيها طلب المشوار "
-                "واكتب «جاهز».",
+                "واكتب «جاهز»."
             )
 
             return True
 
-        customer = original_message.from_user
+        customer = (
+            original_message.from_user
+        )
 
         if not customer:
 
@@ -1459,14 +1695,21 @@ async def handle_ready_reply(update, context):
 
         save_user(customer)
 
-        if not is_customer(customer.id):
-            mark_customer(customer)
+        if not is_customer(
+            customer.id
+        ):
+
+            mark_customer(
+                customer
+            )
 
         await register_trip_message(
             original_message
         )
 
-        trip = get_trip(trip_id)
+        trip = get_trip(
+            trip_id
+        )
 
     if not trip:
 
@@ -1478,30 +1721,25 @@ async def handle_ready_reply(update, context):
 
     customer_id = trip[1]
 
-    # ========================================================
-    # الكابتن نفسه لا يحتاج يسجل نفسه كل مرة
-    # ========================================================
-
     save_user(driver)
-    mark_driver(driver)
 
     # ========================================================
-    # إذا الكابتن هو نفس العميل
+    # أي شخص يضغط جاهز يتم تسجيله ككابتن
     # ========================================================
+
+    mark_driver(driver)
 
     if driver.id == customer_id:
 
         await message.reply_text(
-            "😂 يا عميل، ما ينفع تكون كابتن وعميل لنفس الطلب.",
+
+            "😂 يا عميل، ما ينفع تكون كابتن وعميل لنفس الطلب."
         )
 
         return True
 
-    # ========================================================
-    # إنشاء كرت مستقل لهذا الكابتن
-    # ========================================================
-
     created = await create_ready_card(
+
         update,
         context,
         customer_id,
@@ -1512,13 +1750,13 @@ async def handle_ready_reply(update, context):
     if not created:
 
         await message.reply_text(
-            "✅ أنت مسجل جاهز لهذا المشوار بالفعل.",
+            "✅ أنت مسجل جاهز لهذا المشوار بالفعل."
         )
 
         return True
 
     await message.reply_text(
-        random.choice(READY_MESSAGES),
+        random.choice(READY_MESSAGES)
     )
 
     return True
@@ -1534,6 +1772,7 @@ async def contact_customer_button(
 ):
 
     query = update.callback_query
+
     user = query.from_user
 
     if not query or not user:
@@ -1544,6 +1783,7 @@ async def contact_customer_button(
         parts = query.data.split(":")
 
         trip_id = int(parts[1])
+
         driver_id = int(parts[2])
 
     except Exception:
@@ -1555,32 +1795,37 @@ async def contact_customer_button(
 
         return
 
-    # ========================================================
-    # فقط الكابتن الذي ضغط جاهز يقدر يدخل
-    # ========================================================
-
     if user.id != driver_id:
 
         await query.answer(
+
             "🚫 هذا الزر مخصص للكابتن الذي سجل جاهز لهذا المشوار.",
+
             show_alert=True,
         )
 
         return
 
-    trip = get_trip(trip_id)
+    trip = get_trip(
+        trip_id
+    )
 
     if not trip:
 
         await query.answer(
+
             "⚠️ بيانات المشوار غير موجودة.",
+
             show_alert=True,
         )
 
         return
 
     customer_id = trip[1]
-    customer_username = trip[2] or ""
+
+    customer_username = (
+        trip[2] or ""
+    )
 
     saved_username = get_username(
         customer_id
@@ -1589,33 +1834,31 @@ async def contact_customer_button(
     if saved_username:
         customer_username = saved_username
 
-    # ========================================================
-    # لو عند العميل Username
-    # ========================================================
-
     if customer_username:
 
-        username = customer_username.lstrip("@")
-
-        url = f"https://t.me/{username}"
+        username = (
+            customer_username
+            .lstrip("@")
+        )
 
         await query.answer(
+
             "📩 فتح تواصل العميل...",
-            url=url,
+
+            url=(
+                f"https://t.me/{username}"
+            ),
         )
 
         return
 
-    # ========================================================
-    # بدون Username
-    # نستخدم Telegram user ID
-    # ========================================================
-
-    url = f"tg://user?id={customer_id}"
-
     await query.answer(
+
         "📩 فتح تواصل العميل...",
-        url=url,
+
+        url=(
+            f"tg://user?id={customer_id}"
+        ),
     )
 
 
@@ -1629,6 +1872,7 @@ async def contact_driver_button(
 ):
 
     query = update.callback_query
+
     user = query.from_user
 
     if not query or not user:
@@ -1639,6 +1883,7 @@ async def contact_driver_button(
         parts = query.data.split(":")
 
         trip_id = int(parts[1])
+
         driver_id = int(parts[2])
 
     except Exception:
@@ -1650,12 +1895,16 @@ async def contact_driver_button(
 
         return
 
-    trip = get_trip(trip_id)
+    trip = get_trip(
+        trip_id
+    )
 
     if not trip:
 
         await query.answer(
+
             "⚠️ بيانات المشوار غير موجودة.",
+
             show_alert=True,
         )
 
@@ -1663,22 +1912,16 @@ async def contact_driver_button(
 
     customer_id = trip[1]
 
-    # ========================================================
-    # فقط صاحب رسالة العميل يستطيع التواصل مع هذا الكابتن
-    # ========================================================
-
     if user.id != customer_id:
 
         await query.answer(
+
             "🚫 هذا الزر مخصص لصاحب طلب المشوار فقط.",
+
             show_alert=True,
         )
 
         return
-
-    # ========================================================
-    # التأكد أن الكابتن فعلاً سجل جاهز لهذا الطلب
-    # ========================================================
 
     with db() as con:
 
@@ -1699,7 +1942,9 @@ async def contact_driver_button(
     if not ready:
 
         await query.answer(
+
             "⚠️ هذا الكابتن غير مسجل لهذا المشوار.",
+
             show_alert=True,
         )
 
@@ -1711,18 +1956,29 @@ async def contact_driver_button(
 
     if username:
 
-        username = username.lstrip("@")
+        username = (
+            username
+            .lstrip("@")
+        )
 
         await query.answer(
+
             "🚕 فتح تواصل الكابتن...",
-            url=f"https://t.me/{username}",
+
+            url=(
+                f"https://t.me/{username}"
+            ),
         )
 
         return
 
     await query.answer(
+
         "🚕 فتح تواصل الكابتن...",
-        url=f"tg://user?id={driver_id}",
+
+        url=(
+            f"tg://user?id={driver_id}"
+        ),
     )
 
 
@@ -1736,11 +1992,15 @@ async def role_selection_button(
 ):
 
     query = update.callback_query
+
     data = query.data or ""
+
     clicked_by = query.from_user
 
     if not clicked_by:
+
         await query.answer()
+
         return
 
     try:
@@ -1750,11 +2010,14 @@ async def role_selection_button(
             1,
         )
 
-        target_id = int(target_id)
+        target_id = int(
+            target_id
+        )
 
     except Exception:
 
         await query.answer()
+
         return
 
     admin = await is_admin(
@@ -1768,7 +2031,9 @@ async def role_selection_button(
     ):
 
         await query.answer(
+
             "هذا الزر مخصص للعضو الجديد أو للمسؤول فقط 🙏",
+
             show_alert=True,
         )
 
@@ -1776,16 +2041,22 @@ async def role_selection_button(
 
     if clicked_by.id == target_id:
 
-        save_user(clicked_by)
+        save_user(
+            clicked_by
+        )
 
     else:
 
-        row = get_user_info(target_id)
+        row = get_user_info(
+            target_id
+        )
 
         if not row:
 
             await query.answer(
+
                 "لم يتم العثور على بيانات العضو.",
+
                 show_alert=True,
             )
 
@@ -1798,7 +2069,9 @@ async def role_selection_button(
         )
 
         await query.answer(
+
             "تم تسجيلك ككابتن 🚕 وسيتم التعرف عليك تلقائيًا.",
+
             show_alert=True,
         )
 
@@ -1809,29 +2082,43 @@ async def role_selection_button(
         if clicked_by.id == target_id:
 
             text = (
+
                 f"{target_display}\n\n"
+
                 "✅ تم تسجيلك ككابتن بنجاح.\n\n"
+
                 "من الآن البوت يعرف أنك كابتن، "
                 "وما تحتاج تضغط الزر مرة ثانية.\n\n"
+
                 "🚕 إذا شفت طلب مشوار يناسبك:\n"
+
                 "رد على <b>رسالة العميل نفسها</b> واكتب:\n"
+
                 "<b>جاهز</b>\n\n"
+
                 "📍 وإذا كنت متواجد في حي معين، "
                 "اكتب مثلًا:\n"
+
                 "أنا موجود في الحمدانية لأي مشوار."
             )
 
         else:
 
             text = (
+
                 "👑 <b>تم تعديل صفة العضو</b>\n\n"
+
                 f"👤 العضو: {target_display}\n"
+
                 f"🏷️ الصفة: <b>{html(DRIVER_BADGE)}</b>\n\n"
+
                 "تم حفظ التعديل بنجاح ✅"
             )
 
         await query.message.reply_text(
+
             text,
+
             parse_mode=ParseMode.HTML,
         )
 
@@ -1844,7 +2131,9 @@ async def role_selection_button(
         )
 
         await query.answer(
+
             "تم تسجيل العضو كعميل 🧑🏻‍💼",
+
             show_alert=True,
         )
 
@@ -1855,12 +2144,19 @@ async def role_selection_button(
         if clicked_by.id == target_id:
 
             text = (
+
                 f"{target_display}\n\n"
+
                 "أهلاً فيك 🌹\n\n"
+
                 "🧑🏻‍💼 <b>لطلب مشوار:</b>\n"
+
                 "اكتب طلبك مباشرة في القروب.\n\n"
+
                 "مثال:\n"
+
                 "السلام عليكم، أبغى مشوار من الحمدانية إلى المطار.\n\n"
+
                 "🚕 وإذا رد كابتن على طلبك وكتب «جاهز»، "
                 "بيظهر كرت صغير للتواصل معه."
             )
@@ -1868,14 +2164,20 @@ async def role_selection_button(
         else:
 
             text = (
+
                 "👑 <b>تم تعديل صفة العضو</b>\n\n"
+
                 f"👤 العضو: {target_display}\n"
+
                 f"🏷️ الصفة: <b>{html(CUSTOMER_BADGE)}</b>\n\n"
+
                 "تم حفظ التعديل بنجاح ✅"
             )
 
         await query.message.reply_text(
+
             text,
+
             parse_mode=ParseMode.HTML,
         )
 
@@ -1890,10 +2192,13 @@ async def complaint_button(
 ):
 
     query = update.callback_query
+
     user = query.from_user
 
     if not user:
+
         await query.answer()
+
         return
 
     await query.answer(
@@ -1901,13 +2206,20 @@ async def complaint_button(
     )
 
     await context.bot.send_message(
+
         chat_id=user.id,
+
         text=(
+
             "📝 <b>الشكاوى والاقتراحات</b>\n\n"
+
             "اكتب شكواك أو اقتراحك وأرسلها هنا.\n\n"
+
             f"📩 الإدارة: @{ADMIN_USERNAME}\n\n"
+
             "سيتم التعامل معها بسرية واحترام."
         ),
+
         parse_mode=ParseMode.HTML,
     )
 
@@ -1917,7 +2229,12 @@ async def complaint_button(
 # ============================================================
 
 URL_PATTERN = re.compile(
-    r"(https?://\S+|www\.\S+|t\.me/\S+|telegram\.me/\S+)",
+
+    r"(https?://\S+"
+    r"|www\.\S+"
+    r"|t\.me/\S+"
+    r"|telegram\.me/\S+)",
+
     re.IGNORECASE,
 )
 
@@ -1933,18 +2250,55 @@ def _normalize_link(link):
 
         if link.startswith(prefix):
 
-            link = link[len(prefix):]
-            break
+            link = link[
+                len(prefix):
+            ]
 
-    if link.startswith("www."):
-        link = link[4:]
+            break
 
     return link
 
 
-_ALLOWED_LINK_NORMALIZED = _normalize_link(
-    ALLOWED_GROUP_LINK
+# ============================================================
+# الروابط المسموحة
+# ============================================================
+
+ALLOWED_LINK_NORMALIZED = (
+    _normalize_link(
+        ALLOWED_GROUP_LINK
+    )
 )
+
+
+ALLOWED_GOOGLE_MAPS_DOMAINS = [
+
+    "maps.google.com",
+
+    "google.com/maps",
+
+    "www.google.com/maps",
+
+    "maps.app.goo.gl",
+
+    "goo.gl/maps",
+]
+
+
+def is_google_maps_link(link):
+
+    normalized = _normalize_link(
+        link
+    )
+
+    for domain in ALLOWED_GOOGLE_MAPS_DOMAINS:
+
+        if normalized.startswith(
+            domain
+        ):
+
+            return True
+
+    return False
 
 
 def forbidden_link(text):
@@ -1952,16 +2306,41 @@ def forbidden_link(text):
     if not text:
         return False
 
-    for link in URL_PATTERN.findall(text):
+    for link in URL_PATTERN.findall(
+        text
+    ):
 
         link = link.rstrip(
             ".,!?؟،؛:)]}>\"'"
         )
 
-        if _normalize_link(link).startswith(
-            _ALLOWED_LINK_NORMALIZED
+        normalized = _normalize_link(
+            link
+        )
+
+        # ====================================================
+        # Google Maps مسموح
+        # ====================================================
+
+        if is_google_maps_link(
+            link
         ):
+
             continue
+
+        # ====================================================
+        # رابط القروب الرسمي مسموح
+        # ====================================================
+
+        if normalized.startswith(
+            ALLOWED_LINK_NORMALIZED
+        ):
+
+            continue
+
+        # ====================================================
+        # أي رابط آخر ممنوع
+        # ====================================================
 
         return True
 
@@ -1971,21 +2350,25 @@ def forbidden_link(text):
 def is_forwarded(message):
 
     return bool(
+
         getattr(
             message,
             "forward_origin",
             None,
         )
+
         or getattr(
             message,
             "forward_from",
             None,
         )
+
         or getattr(
             message,
             "forward_from_chat",
             None,
         )
+
         or getattr(
             message,
             "forward_sender_name",
@@ -2000,6 +2383,7 @@ async def protect_message(
 ):
 
     message = update.message
+
     user = update.effective_user
 
     if not message or not user:
@@ -2017,20 +2401,27 @@ async def protect_message(
     if is_forwarded(message):
 
         try:
+
             await message.delete()
+
         except Exception:
             pass
 
         await message.reply_text(
+
             f"⚠️ {display_user(user)}\n\n"
+
             "الرسائل المحولة ممنوعة 🚫\n"
+
             "اكتب الرسالة مباشرة.",
+
             parse_mode=ParseMode.HTML,
         )
 
         return True
 
     text = (
+
         message.text
         or message.caption
         or ""
@@ -2039,14 +2430,19 @@ async def protect_message(
     if forbidden_link(text):
 
         try:
+
             await message.delete()
+
         except Exception:
             pass
 
         await message.reply_text(
+
             f"⚠️ {display_user(user)}\n\n"
-            "الروابط ممنوعة في القروب 🚫",
-            parse_mode=ParseMode.HTML,
+
+            "الروابط ممنوعة في القروب 🚫\n\n"
+
+            "📍 روابط Google Maps مسموحة."
         )
 
         return True
@@ -2059,6 +2455,7 @@ async def protect_message(
 # ============================================================
 
 BAD_WORDS = [
+
     "يا غبي",
     "يا حمار",
     "يا كلب",
@@ -2068,7 +2465,9 @@ BAD_WORDS = [
     "انقلع",
 ]
 
+
 INAPPROPRIATE = [
+
     "مين يبي يتعرف",
     "مين يبغى يتعرف",
     "ابغى بنت",
@@ -2079,36 +2478,47 @@ INAPPROPRIATE = [
 
 def violation_reason(text):
 
-    normalized = normalize_arabic(text)
+    normalized = normalize_arabic(
+        text
+    )
+
     stripped = normalized.strip()
 
     if stripped in (
         "خاص",
         "الخاص",
     ):
+
         return "خاص"
 
     for word in BAD_WORDS:
 
-        if normalize_arabic(word) in normalized:
+        if (
+            normalize_arabic(word)
+            in normalized
+        ):
+
             return "إساءة أو سب"
 
     for phrase in INAPPROPRIATE:
 
-        if normalize_arabic(phrase) in normalized:
+        if (
+            normalize_arabic(phrase)
+            in normalized
+        ):
+
             return "كلام غير مناسب"
 
-    if re.search(
-        r"(?:السعر|بكم|كم|ريال|الاجره|الاجرة|تكلفه|التكلفة|المبلغ)\s*\d+",
-        normalized,
-    ):
-        return "كتابة السعر في العام"
-
-    if re.search(
-        r"\d+\s*(?:ريال|ر\.?س)",
-        normalized,
-    ):
-        return "كتابة السعر في العام"
+    # ========================================================
+    # 💰 الأسعار مسموحة
+    #
+    # لا يوجد أي فحص يمنع:
+    # 400
+    # 400 - 450
+    # 1200 ريال
+    # 25 ريال
+    # إلخ...
+    # ========================================================
 
     return None
 
@@ -2120,6 +2530,7 @@ async def handle_violation(
 ):
 
     message = update.message
+
     user = update.effective_user
 
     if not message or not user:
@@ -2137,19 +2548,28 @@ async def handle_violation(
     if reason == "خاص":
 
         try:
+
             await message.delete()
+
         except Exception:
             pass
 
         await context.bot.send_message(
+
             chat_id=GROUP_ID,
+
             text=(
+
                 f"⚠️ {display_user(user)}\n\n"
+
                 "🚫 ممنوع كتابة «خاص» يا حلو.\n"
+
                 "إذا أنت كابتن وجاهز للمشوار، "
                 "رد على رسالة العميل واكتب «جاهز».\n\n"
+
                 "📝 تم تسجيلها كمخالفة."
             ),
+
             parse_mode=ParseMode.HTML,
         )
 
@@ -2157,7 +2577,9 @@ async def handle_violation(
 
     save_user(user)
 
-    now = datetime.now(SAUDI_TZ)
+    now = datetime.now(
+        SAUDI_TZ
+    )
 
     with db() as con:
 
@@ -2171,8 +2593,17 @@ async def handle_violation(
 
         row = cur.fetchone()
 
-        current = row[0] if row else 0
-        last_at = row[1] if row else None
+        current = (
+            row[0]
+            if row
+            else 0
+        )
+
+        last_at = (
+            row[1]
+            if row
+            else None
+        )
 
         if last_at:
 
@@ -2207,7 +2638,9 @@ async def handle_violation(
         con.commit()
 
     try:
+
         await message.delete()
+
     except Exception:
         pass
 
@@ -2216,40 +2649,70 @@ async def handle_violation(
         try:
 
             until = (
-                datetime.now(SAUDI_TZ)
-                + timedelta(hours=MUTE_HOURS)
+
+                datetime.now(
+                    SAUDI_TZ
+                )
+
+                + timedelta(
+                    hours=MUTE_HOURS
+                )
             )
 
             await context.bot.restrict_chat_member(
+
                 GROUP_ID,
+
                 user.id,
+
                 permissions=ChatPermissions(
+
                     can_send_messages=False,
+
                     can_send_audios=False,
+
                     can_send_documents=False,
+
                     can_send_photos=False,
+
                     can_send_videos=False,
+
                     can_send_video_notes=False,
+
                     can_send_voice_notes=False,
+
                     can_send_polls=False,
+
                     can_send_other_messages=False,
+
                     can_add_web_page_previews=False,
+
                     can_change_info=False,
+
                     can_invite_users=False,
+
                     can_pin_messages=False,
                 ),
+
                 until_date=until,
             )
 
             await context.bot.send_message(
+
                 GROUP_ID,
+
                 (
+
                     "🔇 <b>تم كتم العضو</b>\n\n"
+
                     f"{display_user(user)}\n\n"
+
                     "🔴 المخالفة رقم "
                     f"<b>{count}</b>\n"
+
                     "⏱ مدة الكتم: <b>24 ساعة</b>"
                 ),
+
                 parse_mode=ParseMode.HTML,
             )
 
@@ -2265,13 +2728,20 @@ async def handle_violation(
     if count == 3:
 
         await context.bot.send_message(
+
             GROUP_ID,
+
             (
+
                 "🔴 <b>المخالفة الثالثة</b>\n\n"
+
                 f"{display_user(user)}\n\n"
+
                 "⚠️ هذه آخر مخالفة قبل الكتم.\n"
+
                 "أي مخالفة جديدة = 🔇 كتم 24 ساعة."
             ),
+
             parse_mode=ParseMode.HTML,
         )
 
@@ -2280,26 +2750,40 @@ async def handle_violation(
     if count == 2:
 
         await context.bot.send_message(
+
             GROUP_ID,
+
             (
+
                 "🟠 <b>المخالفة الثانية</b>\n\n"
+
                 f"{display_user(user)}\n\n"
+
                 f"السبب: {html(reason)}\n"
+
                 "⚠️ انتبه، المخالفة القادمة قد تؤدي للكتم."
             ),
+
             parse_mode=ParseMode.HTML,
         )
 
         return
 
     await context.bot.send_message(
+
         GROUP_ID,
+
         (
+
             "🟡 <b>تنبيه للمرة الأولى</b>\n\n"
+
             f"{display_user(user)}\n\n"
+
             f"السبب: {html(reason)}\n"
+
             "المخالفات: 🟡 1 / 3"
         ),
+
         parse_mode=ParseMode.HTML,
     )
 
@@ -2308,11 +2792,15 @@ async def handle_violation(
 # CHAT
 # ============================================================
 
-async def handle_chat_response(message):
+async def handle_chat_response(
+    message
+):
 
     text = message.text or ""
 
-    response = get_greeting(text)
+    response = get_greeting(
+        text
+    )
 
     if not response:
         return False
@@ -2320,7 +2808,9 @@ async def handle_chat_response(message):
     if looks_like_trip(text):
         return False
 
-    if looks_like_driver_location(text):
+    if looks_like_driver_location(
+        text
+    ):
         return False
 
     if is_driver_ready(text):
@@ -2362,6 +2852,7 @@ async def message_handler(
         update,
         context,
     ):
+
         return
 
     text = message.text or ""
@@ -2373,16 +2864,11 @@ async def message_handler(
     # المخالفات
     # ========================================================
 
-    reason = violation_reason(text)
+    reason = violation_reason(
+        text
+    )
 
     if reason:
-
-        # ====================================================
-        # استثناء مهم:
-        #
-        # "جاهز" ليس مخالفة.
-        # وكذلك الرد على رسالة العميل بـ "جاهز".
-        # ====================================================
 
         if is_driver_ready(text):
 
@@ -2395,6 +2881,7 @@ async def message_handler(
                 return
 
         await handle_violation(
+
             update,
             context,
             reason,
@@ -2404,7 +2891,6 @@ async def message_handler(
 
     # ========================================================
     # 🚕 جاهز
-    # لازم يكون رد على رسالة العميل
     # ========================================================
 
     if is_driver_ready(text):
@@ -2417,26 +2903,28 @@ async def message_handler(
         if handled:
             return
 
-        # إذا كتب جاهز بدون Reply
-        # نخليه يفهم أنه لازم يرد على رسالة العميل
-
         if not message.reply_to_message:
 
             if is_driver(user.id):
 
                 await message.reply_text(
+
                     "🚕 يا كابتن، عشان أسجل جاهزيتك لمشوار معين:\n\n"
+
                     "↩️ رد على <b>رسالة العميل نفسها</b> "
                     "واكتب «جاهز».\n\n"
+
                     "كذا أعرف أي مشوار تقصد بالضبط.",
+
                     parse_mode=ParseMode.HTML,
                 )
 
                 return
 
             await message.reply_text(
+
                 "🚕 إذا أنت كابتن، اضغط «أنا كابتن» أولًا، "
-                "ثم رد على رسالة العميل نفسها واكتب «جاهز».",
+                "ثم رد على رسالة العميل نفسها واكتب «جاهز»."
             )
 
             return
@@ -2445,7 +2933,9 @@ async def message_handler(
     # 📍 موقع الكابتن
     # ========================================================
 
-    if looks_like_driver_location(text):
+    if looks_like_driver_location(
+        text
+    ):
 
         await handle_location(
             update,
@@ -2457,9 +2947,10 @@ async def message_handler(
     # ========================================================
     # طلب مشوار
     #
-    # لا توجد بطاقة.
     # الرسالة الأصلية تبقى كما هي.
-    # فقط نسجلها داخليًا في قاعدة البيانات.
+    # لا بطاقة بديلة.
+    # السعر مسموح.
+    # Google Maps مسموح.
     # ========================================================
 
     if looks_like_trip(text):
@@ -2479,6 +2970,7 @@ async def message_handler(
     if await handle_chat_response(
         message
     ):
+
         return
 
 
@@ -2493,14 +2985,19 @@ async def interactive_reminder(
     text = random.choice(
         INTERACTIVE_REMINDERS
     ).format(
+
         GROUP_NAME=GROUP_NAME,
+
         ALLOWED_GROUP_LINK=ALLOWED_GROUP_LINK,
     )
 
     keyboard = InlineKeyboardMarkup([
+
         [
             InlineKeyboardButton(
+
                 "📤 نشر رابط القروب",
+
                 url=(
                     "https://t.me/share/url"
                     f"?url={ALLOWED_GROUP_LINK}"
@@ -2508,25 +3005,33 @@ async def interactive_reminder(
                 ),
             ),
         ],
+
         [
             InlineKeyboardButton(
                 "📋 القوانين",
                 callback_data="rules",
             ),
+
             InlineKeyboardButton(
                 "🚘 فتح القروب",
                 url=ALLOWED_GROUP_LINK,
             ),
         ],
+
     ])
 
     try:
 
         await context.bot.send_message(
+
             chat_id=GROUP_ID,
+
             text=text,
+
             parse_mode=ParseMode.HTML,
+
             reply_markup=keyboard,
+
             disable_web_page_preview=True,
         )
 
@@ -2607,8 +3112,12 @@ async def callback_handler(
     # ========================================================
 
     if (
-        data.startswith("role_customer:")
-        or data.startswith("role_driver:")
+        data.startswith(
+            "role_customer:"
+        )
+        or data.startswith(
+            "role_driver:"
+        )
     ):
 
         await role_selection_button(
@@ -2646,8 +3155,11 @@ async def error_handler(
 ):
 
     logger.error(
+
         "BOT ERROR: %s",
+
         context.error,
+
         exc_info=True,
     )
 
@@ -2686,9 +3198,13 @@ def main():
     # ========================================================
 
     application.job_queue.run_repeating(
+
         interactive_reminder,
+
         interval=REMINDER_INTERVAL,
+
         first=REMINDER_INTERVAL,
+
         name="interactive_group_reminder",
     )
 
@@ -2697,6 +3213,7 @@ def main():
     # ========================================================
 
     application.add_handler(
+
         CommandHandler(
             "start",
             start,
@@ -2704,6 +3221,7 @@ def main():
     )
 
     application.add_handler(
+
         CommandHandler(
             "rules",
             rules,
@@ -2711,6 +3229,7 @@ def main():
     )
 
     application.add_handler(
+
         CommandHandler(
             "help",
             help_command,
@@ -2722,8 +3241,11 @@ def main():
     # ========================================================
 
     application.add_handler(
+
         MessageHandler(
+
             filters.StatusUpdate.NEW_CHAT_MEMBERS,
+
             welcome,
         )
     )
@@ -2733,8 +3255,11 @@ def main():
     # ========================================================
 
     application.add_handler(
+
         MessageHandler(
+
             filters.StatusUpdate.LEFT_CHAT_MEMBER,
+
             member_left_handler,
         )
     )
@@ -2744,6 +3269,7 @@ def main():
     # ========================================================
 
     application.add_handler(
+
         CallbackQueryHandler(
             callback_handler
         )
@@ -2754,8 +3280,11 @@ def main():
     # ========================================================
 
     application.add_handler(
+
         MessageHandler(
+
             filters.TEXT & ~filters.COMMAND,
+
             message_handler,
         )
     )
@@ -2780,6 +3309,16 @@ def main():
 
     print(
         "🚕 Trip system: original customer messages",
+        flush=True,
+    )
+
+    print(
+        "💰 Prices are allowed",
+        flush=True,
+    )
+
+    print(
+        "📍 Google Maps links are allowed",
         flush=True,
     )
 
