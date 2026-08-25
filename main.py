@@ -24,7 +24,7 @@ from telegram.ext import (
 # ⚙️ الإعدادات
 # ============================================================
 
-TOKEN = os.getenv("BOT_TOKEN", "ضع_التوكن_هنا")
+TOKEN = "8881485708:AAGxUH3xKk7kKQ8rKkW6lMKxxtV72klS5O8"
 
 GROUP_ID = -1001234567890  # ⚠️ ضع ايدي القروب هنا
 GROUP_NAME = "🚘 مشاوير جدة وضواحيها"
