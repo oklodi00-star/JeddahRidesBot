@@ -1246,7 +1246,7 @@ async def create_trip(message, context):
 
 
 # ============================================================
-# READY BUTTON
+# READY BUTTON (محدث ليسمح للمشرفين والمالك بالتسجيل ككباتن)
 # ============================================================
 
 async def ready_button(update, context):
@@ -1259,29 +1259,30 @@ async def ready_button(update, context):
     driver = query.from_user
 
     if not driver:
-        await query.answer(
-            "تعذر التعرف على حسابك.",
-            show_alert=True
-        )
+        try:
+            await query.answer(
+                "تعذر التعرف على حسابك.",
+                show_alert=True
+            )
+        except Exception:
+            pass
         return
 
     logger.info(
-        "READY BUTTON PRESSED | user=%s | data=%s",
+        "READY BUTTON PRESSED | user=%s | username=%s | data=%s",
         driver.id,
+        driver.username,
         query.data
     )
 
-    # تأكيد استلام الضغط مباشرة
+    # تأكيد استلام الضغط فوراً
     try:
         await query.answer(
             "⏳ جاري تسجيل جاهزيتك...",
             show_alert=False
         )
-    except Exception as error:
-        logger.error(
-            "READY CALLBACK ANSWER ERROR: %s",
-            error
-        )
+    except Exception:
+        pass
 
     # استخراج رقم بطاقة المشوار
     try:
@@ -1310,7 +1311,7 @@ async def ready_button(update, context):
 
         return
 
-    # تسجيل المستخدم ككابتن تلقائيًا
+    # 🚨 إجبار البوت على تسجيلك ككابتن حتى لو كنت مشرفاً أو مالكاً
     save_user(driver)
     mark_driver(driver)
 
@@ -1343,7 +1344,7 @@ async def ready_button(update, context):
 
         try:
             await query.answer(
-                "⚠️ هذه بطاقة مشوار قديمة وغير محفوظة.",
+                "⚠️ هذه بطاقة مشوار قديمة أو غير محفوظة.",
                 show_alert=True
             )
         except Exception:
@@ -1352,7 +1353,6 @@ async def ready_button(update, context):
         return
 
     customer_id = trip[0]
-    customer_username = trip[1] or ""
     start = trip[2] or ""
     destination = trip[3] or ""
     original_text = trip[4] or ""
@@ -1489,7 +1489,6 @@ async def ready_button(update, context):
             exc_info=True
         )
 
-        # محاولة ثانية بدون الرد على البطاقة
         try:
 
             await context.bot.send_message(
@@ -2523,8 +2522,7 @@ def main():
     )
 
     # ========================================================
-    # 🔥 مهم جدًا:
-    # زر جاهز له Handler مستقل وقبل الـ Handler العام
+    # 🔥 زر جاهز
     # ========================================================
 
     application.add_handler(
