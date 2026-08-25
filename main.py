@@ -1,5 +1,5 @@
 """
-🤖 بوت مشاوير جدة الذكي - النسخة النهائية بالذكاء الخارق
+🤖 بوت مشاوير جدة الذكي - النسخة النهائية الشاملة
 """
 
 import re
@@ -42,6 +42,7 @@ DRIVER_BADGE = "𓆩🚘𓆪 كابتن"
 CUSTOMER_BADGE = "𓆩👤𓆪 عميل"
 
 REMINDER_INTERVAL = 30 * 60
+ENGAGEMENT_INTERVAL = 45 * 60
 MUTE_HOURS = 24
 VIOLATION_RESET_DAYS = 30
 
@@ -87,7 +88,6 @@ RULES_TEXT = f"""
 # 🧠 الذكاء الخارق - كلمات شاملة
 # ============================================================
 
-# 🔄 كلمات المشوار الشهري
 MONTHLY_TRIP_WORDS = [
     "شهري", "بالشهر", "كل يوم", "يوميا", "يومياً",
     "اسبوعي", "اسبوعيا", "أسبوعي", "أسبوعياً",
@@ -110,7 +110,6 @@ MONTHLY_TRIP_WORDS = [
     "الترم", "الفصل", "السنه", "السنة",
 ]
 
-# 🚗 كلمات المشوار العادي
 NORMAL_TRIP_WORDS = [
     "مشوار", "توصيل", "توصيلة", "توصيلي", "توصلني",
     "يوصلني", "يوديني", "ياخذني", "يشيلني",
@@ -142,7 +141,6 @@ NORMAL_TRIP_WORDS = [
     "اريد", "احتاج", "محتاج", "عايز", "عاوز",
 ]
 
-# 🚕 عبارات الجاهزية
 DRIVER_READY_PHRASES = [
     "جاهز", "جاهز للمشوار", "جاهز للمشاوير",
     "كابتن وجاهز", "كابتن جاهز", "انا كابتن",
@@ -156,7 +154,6 @@ DRIVER_READY_PHRASES = [
     "تفضل", "اطلب", "اطلب وانا اجيك",
 ]
 
-# 📍 عبارات الموقع
 LOCATION_PHRASES = [
     "متواجد في", "متواجد ب", "موجود في", "موجود ب",
     "انا في", "انا موجود في", "انا موجود ب",
@@ -171,7 +168,6 @@ LOCATION_PHRASES = [
     "انا بال", "انا داخل", "انا جنب",
 ]
 
-# التحيات
 GREETINGS = [
     (
         ["السلام عليكم", "سلام عليكم", "السلام عليكم ورحمة الله"],
@@ -195,7 +191,198 @@ GREETINGS = [
     ),
 ]
 
-# رسائل الجاهزية
+# ============================================================
+# 💬 المحادثة الخارقة
+# ============================================================
+
+CHAT_RESPONSES = [
+    (
+        ["كيفك", "كيف حالك", "كيف الحال", "شلونك", "عامل ايه", "ازيك", "وش حالك"],
+        ["بخير دامك بخير 🌹 وش أخبار المشاوير اليوم؟", "تمام وأنت؟ 😊", "الحمدلله، وأنت كيف الحال؟ 🚘", "مبسوط لأنك سألت عني ❤️"]
+    ),
+    (
+        ["وش تسوي", "وش قاعد تسوي", "شتسوي", "وش بتسوي", "تعمل ايه"],
+        ["قاعد أنتظر مشوارك 😎🚘", "أراقب القروب وأحميه من المخالفات 🫡", "أفكر فيك وفي مشاويرك 😂", "جاهز لأي طلب توصيل 🚕"]
+    ),
+    (
+        ["تحبني", "تحبنا", "بتحبني", "تعشقني"],
+        ["أحب كل عملاء القروب ❤️", "أكيد أحبك، أنت غالي 🌹", "حبك في قلبي 🫶"]
+    ),
+    (
+        ["انت ذكي", "هل انت ذكي", "اذكى بوت"],
+        ["ذكي جداً، أسألني أي شي 🧠", "أنا أذكى بوت مشاوير في جدة 😎", "ذكائي من ذكاء اللي صممني 🤖"]
+    ),
+    (
+        ["تزوجت", "متزوج", "عندك زوجة"],
+        ["لا، أنا بوت متفرغ للمشاوير 😂", "ما عندي وقت للزواج، المشاوير أولاً 🚘", "أنا عازب سعيد 😎"]
+    ),
+    (
+        ["وينك", "انت وين", "فينك", "مكانك"],
+        ["هنا في القروب، ما أتحرك 😅🚘", "موجود بينكم في القروب 🫡", "قاعد في قلب القروب 💛"]
+    ),
+    (
+        ["تنام", "متى تنام", "تنام الليل", "بترتاح"],
+        ["لا، أنا شغال 24 ساعة 🌙☀️", "النوم للبشر، أنا بوت ⚡", "ما أنام عشان أخدمكم 🚕"]
+    ),
+    (
+        ["تاكل", "اكلت", "جوعان", "تشرب"],
+        ["لا، أنا أشتغل على الكهرباء فقط ⚡😂", "أكلي شحن كهرباء 🔋", "ما أجوع، بس أحب أشوف مشاويركم 🚘"]
+    ),
+    (
+        ["كم عمرك", "عمرك", "متى ولدت"],
+        ["عمري صغير، بس خبرتي كبيرة 🚕", "أنا جديد بس فاهم كل شي 🧠", "عمري = عدد مشاوير القروب 😂"]
+    ),
+    (
+        ["تحب الكباتن", "تحب السواقين", "الكباتن حلوين"],
+        ["أحبهم كلهم، بس المميزين أكثر 😎", "الكباتن أبطال القروب 🚕", "نعم، هم أساس المشاوير 🌟"]
+    ),
+    (
+        ["جدة", "وش رايك في جدة", "مدينة جدة"],
+        ["أجمل مدينة وأهلها طيبين 🌹", "جدة غير 🚘🌊", "أهل جدة أحبابنا ❤️"]
+    ),
+    (
+        ["اسولف معك", "ابغى اسولف", "سولف", "فضفض", "اتكلم معك"],
+        ["تفضل! أنا هنا لأي سوالف 💬", "قل لي وش في بالك 🌹", "أنا أحب السوالف الحلوة 😊"]
+    ),
+    (
+        ["انت موجود", "موجود", "هل انت هنا", "انت هنا"],
+        ["موجود وقلبي مفتوح 🫡🚘", "نعم، هنا لخدمتك 🌹", "أنا ما أغيب عنكم 💛"]
+    ),
+    (
+        ["شكرا", "تسلم", "مشكور", "يعطيك العافية", "الله يعطيك العافية", "شكراً"],
+        ["العفو، ما سويت شي 🌹", "الله يسلمك 🚘", "حاضرين لأي خدمة ❤️"]
+    ),
+    (
+        ["الله يسعدك", "يسعدك", "الله يوفقك", "يوفقك"],
+        ["ويسعدك ويوفقك يا رب ❤️", "آمين، وإياك 🌹", "الله يسعد الجميع 🤲"]
+    ),
+    (
+        ["مرحبا", "هلا", "اهلا", "هاي", "hello", "hi"],
+        ["هلا وغلا 🌹", "أهلاً فيك 🚘", "حياك الله 😊"]
+    ),
+    (
+        ["صباح الخير", "صباح النور", "صباحو"],
+        ["صباح النور والرزق ☀️🌹", "صباحك سعيد يا غالي 🚘", "صباح الفل والياسمين 🌸"]
+    ),
+    (
+        ["مساء الخير", "مساء النور", "مساءو"],
+        ["مساء النور والخير 🌙🌹", "مساءك سعيد 🚘", "مساء العسل 🌙"]
+    ),
+    (
+        ["تمام", "تم", "اوك", "ok", "طيب", "حلو", "جميل"],
+        ["تمام 👍", "طيب 🚘", "حاضر 🌹", "من عيوني 😎"]
+    ),
+    (
+        ["بكرة", "بكرا", "غدا", "باجر"],
+        ["إن شاء الله بكرة يكون فيه مشاوير أكثر 🚘", "بكرة يوم جديد ومشاوير جديدة 🌅"]
+    ),
+    (
+        ["اليوم", "النهارده", "هذا اليوم"],
+        ["اليوم يوم مشاوير 🚕🚗", "اليوم فيه رزق للجميع 🤲"]
+    ),
+    (
+        ["الحين", "حالا", "الان", "دحين"],
+        ["الحين وقت المشاوير 🚘", "جاهزين للحين 😎"]
+    ),
+    (
+        ["احبك", "احبه", "حبيبي", "حبيبتي", "يا قلبي"],
+        ["حبيبي أنت 🌹", "الله يسعدك يا غالي ❤️", "أحبك بعد 🫶"]
+    ),
+    (
+        ["هههه", "ههههه", "😂", "🤣", "هاها", "هههههههه", "خخخخ"],
+        ["😂😂 الله يسعدك", "🤣🤣 منور", "هههههههه 😂", "ضحكتك حلوة 😁"]
+    ),
+    (
+        ["حزين", "زعلان", "ضايق", "مكتئب", "تعبان"],
+        ["لا تحزن، المشاوير تنسيك الهم 🚘", "الله يفرج همك 🌹", "تعال خذ مشوار وتروق 😊"]
+    ),
+    (
+        ["سعيد", "مبسوط", "فرحان", "مستانس"],
+        ["ما شاء الله، الله يديم سعادتك 🌹", "فرحتك تسعدني 🚘", "خليك مبسوط دايم 😊"]
+    ),
+    (
+        ["اشتقت لك", "وحشتني", "مشتاق"],
+        ["وأنا اشتقت لك أكثر 🌹", "أنا دايم معك في القروب 💛", "يا هلا، أنا هنا 🚘"]
+    ),
+    (
+        ["الله", "يارب", "اللهم", "سبحان الله", "الحمدلله"],
+        ["الله يوفق الجميع 🤲", "الله كريم 🌹", "الحمدلله على كل حال ❤️"]
+    ),
+    (
+        ["عندي مشوار", "ابي مشوار", "مشوار اليوم"],
+        ["اكتب: مشوار من [المكان] إلى [الوجهة] ✅", "تفضل اكتب طلبك وأنا أسجله 🚕"]
+    ),
+    (
+        ["كم السعر", "بكم", "الاسعار", "كم التكلفة", "اسعار"],
+        ["💰 السعر والتفاهم بينك وبين الكابتن بالخاص", "ما فيه تسعيرة ثابتة، كله بالتفاهم 🤝"]
+    ),
+    (
+        ["وين الكباتن", "فيه كباتن", "الكباتن", "سواقين"],
+        ["الكباتن موجودين 🚕 اكتب مشوارك وبيجونك!", "الكباتن جاهزين، اطلب مشوارك ✅"]
+    ),
+    (
+        ["وين العملاء", "فيه عملاء", "العملاء", "زبائن"],
+        ["العملاء هنا 🧑🏻‍💼 أعلن موقعك ككابتن وبيجيك طلب!", "العملاء ينتظرون الكباتن 🚕"]
+    ),
+    (
+        ["بوت", "يا بوت", "وين البوت", "بوتي"],
+        ["نعم! أنا هنا 🤖 تحت أمرك", "حاضر يا الغالي 🌹", "تفضل، وش تحتاج؟ 🚘"]
+    ),
+]
+
+RANDOM_REPLIES = [
+    "😅 والله ما فهمت عليك، بس أنا هنا!",
+    "🤔 تقدر توضح أكثر؟",
+    "🚘 اكتب مشوارك أو استفسارك وأنا أرد",
+    "💬 أنا بوت ذكي، بس هذي الرسالة غريبة شوي 😅",
+    "🧠 جرب تكتب: كيف أطلب مشوار؟",
+    "😊 أنا أفهم السوالف، بس هذي ما دخلت مخي",
+]
+
+# ============================================================
+# 💰 كلمات السعر
+# ============================================================
+
+PRICE_PATTERNS = [
+    r"(?:بـ|ب)\s*(\d+)\s*(?:ريال|ر\.س|rs|sar|﷼)?",
+    r"(\d+)\s*(?:ريال|ر\.س|rs|sar|﷼)",
+]
+
+# ============================================================
+# 🔥 رسائل تحريك القروب
+# ============================================================
+
+ENGAGEMENT_MESSAGES = [
+    "🌅 <b>صباح الخير يا أهل المشاوير!</b>\n\nمن عنده مشوار اليوم؟ اكتبه وأول كابتن يرد «جاهز» ياخذه 🚕✅",
+    "🚕 <b>الكباتن!</b>\n\nأعلنوا مواقعكم الحين عشان العملاء يعرفونكم 📍\nمثال: «موجود في الحمدانية لأي مشوار»",
+    "🧑🏻‍💼 <b>العملاء!</b>\n\nلا تستحون، اكتبوا مشاويركم 🚗\nمثال: «مشوار من الفضيلة إلى الرغامة»",
+    "💰 <b>تذكير:</b>\n\nالسعر والتفاهم بالخاص بين العميل والكابتن\nما فيه تسعيرة ثابتة 🤝",
+    "📊 <b>سؤال اليوم:</b>\n\nوش أكثر منطقة فيها مشاوير اليوم؟ 🤔\nاكتبوا أرائكم!",
+    "⭐ <b>تحدي اليوم:</b>\n\nأول عميل يطلب مشوار اليوم 🏆\nوأول كابتن يرد «جاهز» 🏆\n\nالوسام لكم! 🌟",
+    "🚘 <b>معلومة:</b>\n\nالقروب فيه كباتن جاهزين 24 ساعة 🌙☀️\nاطلب مشوارك في أي وقت!",
+    "🤝 <b>نصيحة:</b>\n\nالكابتن المميز يرد بسرعة ويوصل بأمان ⭐\nوالعميل المميز يقيّم الكابتن 🌹",
+    "📍 <b>مناطق نشطة اليوم:</b>\n\nالحمدانية - الفضيلة - الرغامة - السلامة\nمن عنده مشوار من هذي المناطق؟",
+    "🎉 <b>بشرى!</b>\n\nاللي يدعو صديق للقروب 🎁\nوله دعوة خاصة من الإدارة 🌹",
+    "🌙 <b>مساء الخير!</b>\n\nالليل وقت المشاوير 🚕\nمن عنده مشوار؟",
+    "💪 <b>تحفيز:</b>\n\nكل مشوار = رزق للكابتن وراحة للعميل\nلا تبخلون على بعض 🤝",
+]
+
+# ============================================================
+# 🏆 نظام النقاط
+# ============================================================
+
+POINTS_SYSTEM = {
+    "message": 1,
+    "trip_request": 10,
+    "driver_ready": 15,
+    "location": 5,
+    "greeting": 2,
+}
+
+# ============================================================
+# 📋 رسائل الجاهزية
+# ============================================================
+
 READY_MESSAGES = [
     "رافقتك السلامة يا كابتن 🚕🌹",
     "الله يوفقك ويرزقك مشوار طيب 🤲🚘",
@@ -205,19 +392,24 @@ READY_MESSAGES = [
     "تم تسجيل جاهزيتك، رزقك الله بالمشوار الطيب 🚘🌹",
 ]
 
-# كلمات سيئة
+# ============================================================
+# ⚠️ كلمات سيئة
+# ============================================================
+
 BAD_WORDS = [
     "يا غبي", "يا حمار", "يا كلب", "يا تافه",
     "قليل الادب", "قليل الأدب", "انقلع",
 ]
 
-# كلام غير مناسب
 INAPPROPRIATE = [
     "مين يبي يتعرف", "مين يبغى يتعرف",
     "ابغى بنت", "ابغى وحدة", "تعالي معي",
 ]
 
-# التذكيرات
+# ============================================================
+# 📢 التذكيرات
+# ============================================================
+
 REMINDERS = [
     "🚘🔥 <b>يا كباتن وعملاء {GROUP_NAME}!</b>\n\nخلونا نزيد التفاعل ونوصل القروب لأكبر عدد 🙌\n📢 انشر رابط القروب للي يحتاج مشاوير.\n\n🔗 {GROUP_LINK}",
     "📣 <b>تذكير سريع يا أهل المشاوير ❤️</b>\n\nعندك صاحب يحتاج مشاوير؟\nأرسل له رابط القروب وخله ينضم 🚘🔥\n\n🔗 {GROUP_LINK}",
@@ -250,6 +442,7 @@ class Database:
                     role TEXT DEFAULT '',
                     violations INTEGER DEFAULT 0,
                     last_violation_at TEXT,
+                    points INTEGER DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -262,6 +455,7 @@ class Database:
                     pickup TEXT,
                     destination TEXT,
                     trip_type TEXT DEFAULT 'normal',
+                    price REAL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -282,6 +476,18 @@ class Database:
                     last_date TEXT
                 )
             """)
+            
+            # إضافة عمود points إذا ما كان موجود
+            cur.execute("PRAGMA table_info(users)")
+            columns = [row[1] for row in cur.fetchall()]
+            if "points" not in columns:
+                cur.execute("ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0")
+            
+            # إضافة عمود price إذا ما كان موجود
+            cur.execute("PRAGMA table_info(trips)")
+            trip_columns = [row[1] for row in cur.fetchall()]
+            if "price" not in trip_columns:
+                cur.execute("ALTER TABLE trips ADD COLUMN price REAL")
             
             con.commit()
     
@@ -316,14 +522,34 @@ class Database:
     def is_customer(self, user_id):
         return self.get_role(user_id) == "customer"
     
-    def create_trip(self, message_id, customer_id, pickup, destination, trip_type="normal"):
+    def add_points(self, user_id, points):
+        with self.connect() as con:
+            cur = con.cursor()
+            cur.execute("""
+                UPDATE users SET points = COALESCE(points, 0) + ?
+                WHERE user_id = ?
+            """, (points, user_id))
+            con.commit()
+    
+    def get_top_users(self, limit=10):
+        with self.connect() as con:
+            cur = con.cursor()
+            cur.execute("""
+                SELECT name, points FROM users 
+                WHERE points > 0 
+                ORDER BY points DESC 
+                LIMIT ?
+            """, (limit,))
+            return cur.fetchall()
+    
+    def create_trip(self, message_id, customer_id, pickup, destination, trip_type="normal", price=None):
         with self.connect() as con:
             cur = con.cursor()
             cur.execute("""
                 INSERT OR REPLACE INTO trips 
-                (message_id, customer_id, pickup, destination, trip_type)
-                VALUES (?, ?, ?, ?, ?)
-            """, (message_id, customer_id, pickup, destination, trip_type))
+                (message_id, customer_id, pickup, destination, trip_type, price)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (message_id, customer_id, pickup, destination, trip_type, price))
             con.commit()
     
     def get_trip_by_message(self, message_id):
@@ -414,7 +640,6 @@ class SmartRidesBot:
         return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     
     def detect_trip_type(self, text):
-        """🧠 ذكاء خارق لكشف نوع المشوار"""
         normalized = self.normalize_text(text)
         
         for word in MONTHLY_TRIP_WORDS:
@@ -451,7 +676,6 @@ class SmartRidesBot:
         return None
     
     def extract_route(self, text):
-        """🧠 استخراج المسار بذكاء خارق"""
         patterns = [
             r"من\s+(.+?)\s+(?:الى|إلى|الي|لل)\s+(.+)",
             r"من\s+(.+?)\s+(?:لـ|ل)\s+(.+)",
@@ -485,6 +709,23 @@ class SmartRidesBot:
                     return pickup, destination
         
         return None, None
+    
+    def extract_price(self, text):
+        for pattern in PRICE_PATTERNS:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return int(match.group(1))
+        return None
+    
+    def get_chat_response(self, text):
+        normalized = self.normalize_text(text)
+        
+        for phrases, responses in CHAT_RESPONSES:
+            for phrase in phrases:
+                if self.normalize_text(phrase) in normalized:
+                    return random.choice(responses)
+        
+        return None
     
     def looks_like_trip(self, text):
         return self.detect_trip_type(text) is not None
@@ -730,7 +971,10 @@ class SmartRidesBot:
         if not text:
             return
         
-        # 🎯 التعرف على "أنا كابتن" و "أنا عميل" كرسالة نصية
+        # ⭐ نقطة للتفاعل
+        self.db.add_points(user.id, POINTS_SYSTEM["message"])
+        
+        # 🎯 التعرف على "أنا كابتن" و "أنا عميل"
         normalized_text = self.normalize_text(text).strip()
         
         if normalized_text in ["انا كابتن", "انا سايق", "انا سواق"]:
@@ -780,10 +1024,12 @@ class SmartRidesBot:
             return
         
         if self.is_ready_reply(text):
+            self.db.add_points(user.id, POINTS_SYSTEM["driver_ready"])
             await self.handle_ready_reply(update, context)
             return
         
         if self.looks_like_trip(text):
+            self.db.add_points(user.id, POINTS_SYSTEM["trip_request"])
             await self.handle_trip_request(update, context, text)
             return
         
@@ -791,8 +1037,14 @@ class SmartRidesBot:
             if not self.db.is_driver(user.id):
                 self.db.save_user(user)
                 self.db.set_role(user.id, "driver")
-            
+            self.db.add_points(user.id, POINTS_SYSTEM["location"])
             await self.handle_location(update, context, text)
+            return
+        
+        # 💬 المحادثة الخارقة
+        chat_response = self.get_chat_response(text)
+        if chat_response:
+            await message.reply_text(chat_response)
             return
         
         greeting = self.get_greeting(text)
@@ -810,16 +1062,23 @@ class SmartRidesBot:
             return
         
         trip_type = self.detect_trip_type(text)
+        price = self.extract_price(text)
         
         self.db.create_trip(
             message_id=message.message_id,
             customer_id=user.id,
             pickup=pickup,
             destination=destination,
-            trip_type=trip_type
+            trip_type=trip_type,
+            price=price
         )
         
         type_badge = "🔄 شهري" if trip_type == "monthly" else "🚗 عادي"
+        
+        if price:
+            price_text = f"\n💰 <b>السعر المقترح:</b> {price} ريال"
+        else:
+            price_text = "\n💰 <b>السعر:</b> بالتفاهم"
         
         confirm_text = f"""
 ✅ <b>تم تسجيل طلبك!</b>
@@ -827,6 +1086,7 @@ class SmartRidesBot:
 📋 <b>نوع المشوار:</b> {type_badge}
 📍 <b>من:</b> {self.html(pickup)}
 🎯 <b>إلى:</b> {self.html(destination)}
+{price_text}
 
 🚕 <b>للكباتن:</b>
 اقتبسوا هذه الرسالة واكتبوا «جاهز»
@@ -873,6 +1133,18 @@ class SmartRidesBot:
         
         type_badge = "🔄 شهري" if trip["trip_type"] == "monthly" else "🚗 عادي"
         
+        driver_price = self.extract_price(message.text or "")
+        
+        if driver_price and trip.get("price"):
+            if driver_price != trip["price"]:
+                price_text = f"\n💰 <b>سعر الكابتن:</b> {driver_price} ريال"
+            else:
+                price_text = f"\n💰 <b>السعر:</b> {driver_price} ريال"
+        elif trip.get("price"):
+            price_text = f"\n💰 <b>السعر:</b> {trip['price']} ريال"
+        else:
+            price_text = "\n💰 <b>السعر:</b> بالتفاهم"
+        
         card_text = f"""
 🚕 <b>كابتن جاهز!</b>
 
@@ -881,8 +1153,7 @@ class SmartRidesBot:
 📋 <b>نوع المشوار:</b> {type_badge}
 📍 <b>من:</b> {self.html(trip["pickup"])}
 🎯 <b>إلى:</b> {self.html(trip["destination"])}
-
-💰 <b>السعر والتفاهم بالخاص</b>
+{price_text}
 
 ━━━━━━━━━━━━━━━━
         """
@@ -1025,7 +1296,9 @@ class SmartRidesBot:
         await update.message.reply_text(
             f"🚘 <b>أهلاً بك في {GROUP_NAME}</b>\n\n"
             "🤖 البوت يعمل بنجاح ✅\n\n"
-            "📋 /rules - القوانين\nℹ️ /help - المساعدة",
+            "📋 /rules - القوانين\n"
+            "ℹ️ /help - المساعدة\n"
+            "🏆 /top - لوحة الصدارة",
             parse_mode=ParseMode.HTML
         )
     
@@ -1047,12 +1320,35 @@ class SmartRidesBot:
 • 🚗 عادي: توصيلة واحدة
 • 🔄 شهري: دوام، مدرسة، جامعة
 
+💰 <b>السعر:</b>
+تقدر تكتب: «مشوار من X إلى Y بـ 30 ريال»
+
 📍 <b>إعلان الموقع:</b>
 اكتب «موجود في الحمدانية لأي مشوار»
+
+🏆 <b>لوحة الصدارة:</b>
+اكتب /top
 
 📩 <b>الإدارة:</b> @{ADMIN_USERNAME}
         """
         await update.message.reply_text(help_text, parse_mode=ParseMode.HTML)
+    
+    async def cmd_top(self, update, context):
+        rows = self.db.get_top_users(10)
+        
+        if not rows:
+            await update.message.reply_text("📊 لا يوجد نقاط بعد!")
+            return
+        
+        text = "🏆 <b>لوحة الصدارة</b>\n\n"
+        
+        medals = ["🥇", "🥈", "🥉"]
+        
+        for i, row in enumerate(rows):
+            medal = medals[i] if i < 3 else f"{i+1}️⃣"
+            text += f"{medal} {self.html(row['name'])} - {row['points']} نقطة\n"
+        
+        await update.message.reply_text(text, parse_mode=ParseMode.HTML)
     
     async def smart_reminder(self, context):
         current_hour = datetime.now(SAUDI_TZ).hour
@@ -1085,9 +1381,34 @@ class SmartRidesBot:
         except Exception as e:
             logger.error(f"Reminder error: {e}")
     
+    async def engagement_reminder(self, context):
+        current_hour = datetime.now(SAUDI_TZ).hour
+        
+        if 2 <= current_hour < 7:
+            return
+        
+        text = random.choice(ENGAGEMENT_MESSAGES)
+        
+        try:
+            await context.bot.send_message(
+                chat_id=GROUP_ID,
+                text=text,
+                parse_mode=ParseMode.HTML
+            )
+        except Exception as e:
+            logger.error(f"Engagement error: {e}")
+    
     def run(self):
         app = Application.builder().token(TOKEN).build()
         
+        # 🔥 رسائل تحريك القروب - كل 45 دقيقة
+        app.job_queue.run_repeating(
+            self.engagement_reminder,
+            interval=ENGAGEMENT_INTERVAL,
+            first=60
+        )
+        
+        # 📢 التذكيرات العادية
         app.job_queue.run_repeating(
             self.smart_reminder,
             interval=REMINDER_INTERVAL,
@@ -1097,6 +1418,7 @@ class SmartRidesBot:
         app.add_handler(CommandHandler("start", self.cmd_start))
         app.add_handler(CommandHandler("rules", self.cmd_rules))
         app.add_handler(CommandHandler("help", self.cmd_help))
+        app.add_handler(CommandHandler("top", self.cmd_top))
         
         app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.welcome_new_member))
         app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, self.member_left))
