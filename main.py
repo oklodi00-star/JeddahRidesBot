@@ -1,5 +1,5 @@
 """
-🤖 بوت مشاوير جدة الذكي - النسخة النهائية
+🤖 بوت مشاوير جدة الذكي - النسخة النهائية بالأزرار
 """
 
 import os
@@ -59,8 +59,7 @@ RULES_TEXT = f"""
 2️⃣ العميل يكتب طلبه مباشرة:
 📍 من وين → إلى وين
 
-3️⃣ 🚕 الكابتن إذا يبي المشوار:
-↩️ يقتبس رسالة العميل ويكتب «جاهز»
+3️⃣ 🚕 الكابتن يضغط زر «أنا جاهز» تحت الطلب
 
 4️⃣ 💰 السعر والتفاهم بين العميل والكابتن بالخاص.
 
@@ -75,12 +74,6 @@ RULES_TEXT = f"""
 9️⃣ 📍 الكابتن يعلن موقعه مرة واحدة يوميًا.
 
 🔟 🤝 الاحترام واجب على الجميع.
-
-⚠️ <b>نظام المخالفات:</b>
-🟡 الأولى → تحذير
-🟠 الثانية → تحذير
-🔴 الثالثة → تحذير أخير
-🔇 الرابعة → كتم 24 ساعة
 
 📩 <b>الإدارة:</b> @{ADMIN_USERNAME}
 """
@@ -111,16 +104,6 @@ NORMAL_TRIP_WORDS = [
     "عندي مشوار", "عندي توصيلة",
     "الحين", "حالا", "بسرعة", "عاجل",
     "ابي", "ابغى", "ابغا", "ودي", "اريد", "احتاج",
-]
-
-DRIVER_READY_PHRASES = [
-    "جاهز", "جاهز للمشوار", "جاهز للمشاوير",
-    "كابتن وجاهز", "كابتن جاهز", "انا كابتن",
-    "انا كابتن وجاهز", "جاهز لاي مشوار",
-    "جاهز لأي مشوار", "متوفر للمشاوير",
-    "موجود", "انا موجود", "انا جاهز",
-    "تمام", "ابشر", "خدمني", "تحت امرك",
-    "انا معك", "انا بالخدمة", "تفضل", "اطلب",
 ]
 
 LOCATION_PHRASES = [
@@ -179,10 +162,6 @@ CHAT_RESPONSES = [
         ["هنا في القروب 🫡"],
     ),
     (
-        ["تنام", "تاكل"],
-        ["لا، أنا بوت شغال 24 ساعة ⚡"],
-    ),
-    (
         ["سولف", "اسولف معك"],
         ["تفضل! أنا هنا لأي سوالف 💬"],
     ),
@@ -223,23 +202,15 @@ CHAT_RESPONSES = [
         ["الله يسلمك 🌹", "ويسعدك يا رب ❤️"],
     ),
     (
-        ["مع السلامه", "باي"],
-        ["مع السلامة 🌹"],
-    ),
-    (
         ["ارحبو", "حي الله"],
         ["الله يحييك 🌹"],
     ),
 ]
 
-RANDOM_REPLIES = [
-    "😅 ما فهمت عليك، بس أنا هنا!",
-    "🚘 اكتب مشوارك أو استفسارك",
-]
-
-PRICE_PATTERNS = [
-    r"(?:بـ|ب)\s*(\d+)\s*(?:ريال|ر\.س|rs|sar|﷼)?",
-    r"(\d+)\s*(?:ريال|ر\.س|rs|sar|﷼)",
+READY_MESSAGES = [
+    "رافقتك السلامة يا كابتن 🚕🌹",
+    "الله يوفقك ويرزقك مشوار طيب 🤲🚘",
+    "تم تسجيل جاهزيتك 🚘🌹",
 ]
 
 ENGAGEMENT_MESSAGES = [
@@ -248,30 +219,9 @@ ENGAGEMENT_MESSAGES = [
     "🧑🏻‍💼 <b>العملاء!</b>\n\nاكتبوا مشاويركم 🚗",
 ]
 
-POINTS_SYSTEM = {
-    "message": 1,
-    "trip_request": 10,
-    "driver_ready": 15,
-    "location": 5,
-}
-
-READY_MESSAGES = [
-    "رافقتك السلامة يا كابتن 🚕🌹",
-    "الله يوفقك ويرزقك مشوار طيب 🤲🚘",
-    "تم تسجيل جاهزيتك 🚘🌹",
-]
-
 BAD_WORDS = [
     "يا غبي", "يا حمار", "يا كلب", "يا تافه",
     "قليل الادب", "انقلع",
-]
-
-INAPPROPRIATE = [
-    "مين يبي يتعرف", "ابغى بنت", "تعالي معي",
-]
-
-REMINDERS = [
-    "🚘🔥 <b>يا كباتن وعملاء {GROUP_NAME}!</b>\n\nانشر رابط القروب 📢\n🔗 {GROUP_LINK}",
 ]
 
 # ============================================================
@@ -298,10 +248,7 @@ class Database:
                     name TEXT,
                     username TEXT,
                     role TEXT DEFAULT '',
-                    violations INTEGER DEFAULT 0,
-                    last_violation_at TEXT,
-                    points INTEGER DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    points INTEGER DEFAULT 0
                 )
             """)
             
@@ -313,7 +260,6 @@ class Database:
                     pickup TEXT,
                     destination TEXT,
                     trip_type TEXT DEFAULT 'normal',
-                    price REAL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -368,37 +314,23 @@ class Database:
     def is_customer(self, user_id):
         return self.get_role(user_id) == "customer"
     
-    def add_points(self, user_id, points):
-        with self.connect() as con:
-            cur = con.cursor()
-            cur.execute("UPDATE users SET points = COALESCE(points, 0) + ? WHERE user_id = ?", (points, user_id))
-            con.commit()
-    
-    def get_top_users(self, limit=10):
-        with self.connect() as con:
-            cur = con.cursor()
-            cur.execute("SELECT name, points FROM users WHERE points > 0 ORDER BY points DESC LIMIT ?", (limit,))
-            return cur.fetchall()
-    
-    def create_trip(self, message_id, customer_id, pickup, destination, trip_type="normal", price=None):
+    def create_trip(self, message_id, customer_id, pickup, destination, trip_type="normal"):
         with self.connect() as con:
             cur = con.cursor()
             cur.execute("""
                 INSERT OR REPLACE INTO trips 
-                (message_id, customer_id, pickup, destination, trip_type, price)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (message_id, customer_id, pickup, destination, trip_type, price))
+                (message_id, customer_id, pickup, destination, trip_type)
+                VALUES (?, ?, ?, ?, ?)
+            """, (message_id, customer_id, pickup, destination, trip_type))
             con.commit()
-            print(f"✅ تم حفظ الرحلة: message_id={message_id}, من={pickup}, إلى={destination}")
+            return cur.lastrowid
     
-    def get_trip_by_message(self, message_id):
+    def get_trip(self, trip_id):
         with self.connect() as con:
             cur = con.cursor()
-            cur.execute("SELECT * FROM trips WHERE message_id = ?", (message_id,))
+            cur.execute("SELECT * FROM trips WHERE trip_id = ?", (trip_id,))
             row = cur.fetchone()
-            result = dict(row) if row else None
-            print(f"🔍 البحث عن message_id={message_id} → {result}")
-            return result
+            return dict(row) if row else None
     
     def add_ready_driver(self, trip_id, driver_id):
         with self.connect() as con:
@@ -412,17 +344,6 @@ class Database:
             cur = con.cursor()
             cur.execute("SELECT 1 FROM ready_drivers WHERE trip_id = ? AND driver_id = ?", (trip_id, driver_id))
             return cur.fetchone() is not None
-    
-    def add_violation(self, user_id):
-        with self.connect() as con:
-            cur = con.cursor()
-            cur.execute("SELECT violations FROM users WHERE user_id = ?", (user_id,))
-            row = cur.fetchone()
-            current = row[0] if row else 0
-            count = current + 1
-            cur.execute("UPDATE users SET violations = ?, last_violation_at = ? WHERE user_id = ?", (count, datetime.now(SAUDI_TZ).isoformat(), user_id))
-            con.commit()
-            return count
     
     def check_location_today(self, driver_id):
         today = datetime.now(SAUDI_TZ).date().isoformat()
@@ -458,38 +379,32 @@ class SmartRidesBot:
     
     def detect_trip_type(self, text):
         normalized = self.normalize_text(text)
-        
         for word in MONTHLY_TRIP_WORDS:
             if self.normalize_text(word) in normalized:
                 return "monthly"
-        
         for word in NORMAL_TRIP_WORDS:
             if self.normalize_text(word) in normalized:
                 return "normal"
-        
         if re.search(r"من\s+.+?\s+(?:الى|إلى|الي)\s+.+", text, re.IGNORECASE):
             return "normal"
-        
         return None
     
     def extract_route(self, text):
         match = re.search(r"من\s+(.+?)\s+(?:الى|إلى|الي|لل)\s+(.+)", text, re.IGNORECASE)
         if match:
             return match.group(1).strip(), match.group(2).strip()
-        
         if "→" in text or "->" in text:
             parts = re.split(r"→|->", text)
             if len(parts) >= 2:
                 return parts[0].strip(), parts[1].strip()
-        
         return None, None
     
-    def extract_price(self, text):
-        for pattern in PRICE_PATTERNS:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                return int(match.group(1))
-        return None
+    def looks_like_trip(self, text):
+        return self.detect_trip_type(text) is not None
+    
+    def looks_like_location(self, text):
+        normalized = self.normalize_text(text)
+        return any(self.normalize_text(p) in normalized for p in LOCATION_PHRASES)
     
     def get_chat_response(self, text):
         normalized = self.normalize_text(text)
@@ -498,17 +413,6 @@ class SmartRidesBot:
                 if self.normalize_text(phrase) in normalized:
                     return random.choice(responses)
         return None
-    
-    def looks_like_trip(self, text):
-        return self.detect_trip_type(text) is not None
-    
-    def is_ready_reply(self, text):
-        normalized = self.normalize_text(text).strip()
-        return normalized in [self.normalize_text(p) for p in DRIVER_READY_PHRASES]
-    
-    def looks_like_location(self, text):
-        normalized = self.normalize_text(text)
-        return any(self.normalize_text(p) in normalized for p in LOCATION_PHRASES)
     
     def get_greeting(self, text):
         normalized = self.normalize_text(text)
@@ -526,41 +430,6 @@ class SmartRidesBot:
             if self.normalize_text(word) in normalized:
                 return "إساءة"
         return None
-    
-    def is_forwarded(self, message):
-        return bool(
-            getattr(message, "forward_origin", None) or
-            getattr(message, "forward_from", None) or
-            getattr(message, "forward_from_chat", None) or
-            getattr(message, "forward_sender_name", None)
-        )
-    
-    def forbidden_link(self, text):
-        if not text:
-            return False
-        url_pattern = re.compile(r"(https?://\S+|www\.\S+|t\.me/\S+|telegram\.me/\S+)", re.IGNORECASE)
-        for link in url_pattern.findall(text):
-            normalized = link.lower().rstrip("/")
-            if normalized.startswith(GROUP_LINK.lower().rstrip("/")):
-                continue
-            if any(domain in normalized for domain in ["maps.google.com", "goo.gl/maps", "maps.app.goo.gl"]):
-                continue
-            return True
-        return False
-    
-    async def is_admin(self, update, context):
-        user = update.effective_user
-        if not user:
-            return False
-        if user.id in ADMIN_IDS:
-            return True
-        if user.username and user.username.lower() in [u.lower() for u in ADMIN_USERNAMES]:
-            return True
-        try:
-            member = await context.bot.get_chat_member(GROUP_ID, user.id)
-            return member.status in ["administrator", "creator"]
-        except:
-            return False
     
     def get_role_badge(self, user_id):
         if self.db.is_driver(user_id):
@@ -593,7 +462,7 @@ class SmartRidesBot:
 اكتب: «مشوار من الفضيلة إلى الرغامة»
 
 🚕 <b>كابتن:</b>
-اقتبس رسالة العميل واكتب «جاهز»
+اضغط زر «أنا جاهز» تحت الطلب
 
 ✍️ <b>للتسجيل:</b>
 اكتب «أنا كابتن» أو «أنا عميل»
@@ -622,7 +491,7 @@ class SmartRidesBot:
         else:
             return
         target_id = int(data.split(":")[1])
-        if user.id != target_id and not await self.is_admin(update, context):
+        if user.id != target_id:
             await query.answer("هذا الزر مخصص للعضو الجديد فقط!", show_alert=True)
             return
         self.db.save_user(user)
@@ -630,7 +499,7 @@ class SmartRidesBot:
         if role == "customer":
             confirm_text = "✅ <b>تم تسجيلك كعميل!</b>\n\nاكتب مشوارك مباشرة"
         else:
-            confirm_text = "✅ <b>تم تسجيلك ككابتن!</b>\n\nاقتبس رسالة العميل واكتب «جاهز»"
+            confirm_text = "✅ <b>تم تسجيلك ككابتن!</b>\n\nاضغط زر «أنا جاهز» تحت أي طلب"
         await query.message.reply_text(confirm_text, parse_mode=ParseMode.HTML)
     
     async def show_rules(self, update, context):
@@ -650,13 +519,12 @@ class SmartRidesBot:
         if not text:
             return
         
-        self.db.add_points(user.id, POINTS_SYSTEM["message"])
         normalized_text = self.normalize_text(text).strip()
         
         if normalized_text in ["انا كابتن", "انا سايق", "انا سواق"]:
             self.db.save_user(user)
             self.db.set_role(user.id, "driver")
-            await message.reply_text("✅ <b>تم تسجيلك ككابتن!</b>\n\nاقتبس رسالة العميل واكتب «جاهز»", parse_mode=ParseMode.HTML)
+            await message.reply_text("✅ <b>تم تسجيلك ككابتن!</b>\n\nاضغط زر «أنا جاهز» تحت أي طلب", parse_mode=ParseMode.HTML)
             return
         
         if normalized_text in ["انا عميل", "انا زبون", "انا طالب"]:
@@ -665,32 +533,7 @@ class SmartRidesBot:
             await message.reply_text("✅ <b>تم تسجيلك كعميل!</b>\n\nاكتب طلبك مباشرة", parse_mode=ParseMode.HTML)
             return
         
-        if self.is_forwarded(message) and not await self.is_admin(update, context):
-            try:
-                await message.delete()
-            except:
-                pass
-            return
-        
-        if self.forbidden_link(text) and not await self.is_admin(update, context):
-            try:
-                await message.delete()
-            except:
-                pass
-            return
-        
-        reason = self.violation_reason(text)
-        if reason and not await self.is_admin(update, context):
-            await self.handle_violation(update, context, reason)
-            return
-        
-        if self.is_ready_reply(text):
-            self.db.add_points(user.id, POINTS_SYSTEM["driver_ready"])
-            await self.handle_ready_reply(update, context)
-            return
-        
         if self.looks_like_trip(text):
-            self.db.add_points(user.id, POINTS_SYSTEM["trip_request"])
             await self.handle_trip_request(update, context, text)
             return
         
@@ -698,8 +541,15 @@ class SmartRidesBot:
             if not self.db.is_driver(user.id):
                 self.db.save_user(user)
                 self.db.set_role(user.id, "driver")
-            self.db.add_points(user.id, POINTS_SYSTEM["location"])
             await self.handle_location(update, context, text)
+            return
+        
+        reason = self.violation_reason(text)
+        if reason:
+            try:
+                await message.delete()
+            except:
+                pass
             return
         
         chat_response = self.get_chat_response(text)
@@ -708,7 +558,7 @@ class SmartRidesBot:
             return
         
         greeting = self.get_greeting(text)
-        if greeting and not self.looks_like_trip(text):
+        if greeting:
             await message.reply_text(greeting)
             return
     
@@ -722,23 +572,16 @@ class SmartRidesBot:
             return
         
         trip_type = self.detect_trip_type(text)
-        price = self.extract_price(text)
         
-        self.db.create_trip(
+        trip_id = self.db.create_trip(
             message_id=message.message_id,
             customer_id=user.id,
             pickup=pickup,
             destination=destination,
-            trip_type=trip_type,
-            price=price
+            trip_type=trip_type
         )
         
         type_badge = "🔄 شهري" if trip_type == "monthly" else "🚗 عادي"
-        
-        if price:
-            price_text = f"\n💰 <b>السعر المقترح:</b> {price} ريال"
-        else:
-            price_text = "\n💰 <b>السعر:</b> بالتفاهم"
         
         confirm_text = f"""
 ✅ <b>تم تسجيل طلبك!</b>
@@ -746,53 +589,62 @@ class SmartRidesBot:
 📋 <b>نوع المشوار:</b> {type_badge}
 📍 <b>من:</b> {self.html(pickup)}
 🎯 <b>إلى:</b> {self.html(destination)}
-{price_text}
 
 🚕 <b>للكباتن:</b>
-اقتبسوا رسالة العميل الأصلية واكتبوا «جاهز»
+اضغطوا الزر بالأسفل 👇
         """
         
-        await message.reply_text(confirm_text, parse_mode=ParseMode.HTML)
+        # ✅ أزرار للكابتن
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🚕 أنا جاهز للمشوار", callback_data=f"take_trip:{trip_id}:{user.id}"),
+            ],
+        ])
+        
+        await message.reply_text(
+            confirm_text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=keyboard
+        )
     
-    async def handle_ready_reply(self, update, context):
-        message = update.message
-        driver = update.effective_user
+    async def handle_take_trip(self, update, context):
+        """🚕 الكابتن يضغط زر أنا جاهز"""
+        query = update.callback_query
+        await query.answer()
         
-        if not message.reply_to_message:
-            await message.reply_text(
-                "⚠️ لازم تقتبس رسالة العميل وترد «جاهز»",
-                parse_mode=ParseMode.HTML
-            )
+        driver = query.from_user
+        data = query.data.split(":")
+        trip_id = int(data[1])
+        customer_id = int(data[2])
+        
+        # منع العميل من أخذ مشواره
+        if driver.id == customer_id:
+            await query.answer("😂 ما تقدر تأخذ مشوارك بنفسك!", show_alert=True)
             return
         
-        replied_message = message.reply_to_message
-        trip = self.db.get_trip_by_message(replied_message.message_id)
-        
-        if not trip:
-            await message.reply_text(
-                "⚠️ هذه ليست رسالة طلب مشوار!\n"
-                "رد على رسالة العميل الأصلية بالضبط",
-                parse_mode=ParseMode.HTML
-            )
-            return
-        
-        if trip["customer_id"] == driver.id:
-            await message.reply_text("😂 ما تقدر تأخذ مشوارك بنفسك!", parse_mode=ParseMode.HTML)
-            return
-        
+        # حفظ الكابتن
         self.db.save_user(driver)
         
         if not self.db.is_driver(driver.id):
             self.db.set_role(driver.id, "driver")
         
-        added = self.db.add_ready_driver(trip["trip_id"], driver.id)
+        # إضافة الكابتن
+        added = self.db.add_ready_driver(trip_id, driver.id)
         
         if not added:
-            await message.reply_text("✅ أنت مسجل جاهز لهذا المشوار بالفعل!", parse_mode=ParseMode.HTML)
+            await query.answer("✅ أنت مسجل جاهز لهذا المشوار بالفعل!", show_alert=True)
+            return
+        
+        # جلب بيانات الرحلة
+        trip = self.db.get_trip(trip_id)
+        
+        if not trip:
+            await query.answer("⚠️ المشوار غير موجود!", show_alert=True)
             return
         
         type_badge = "🔄 شهري" if trip["trip_type"] == "monthly" else "🚗 عادي"
         
+        # ✅ كرت الكابتن الجاهز
         card_text = f"""
 🚕 <b>كابتن جاهز!</b>
 
@@ -802,20 +654,30 @@ class SmartRidesBot:
 📍 <b>من:</b> {self.html(trip["pickup"])}
 🎯 <b>إلى:</b> {self.html(trip["destination"])}
 
+💰 <b>السعر:</b> بالتفاهم بالخاص
+
 ━━━━━━━━━━━━━━━━
         """
         
-        keyboard = InlineKeyboardMarkup([
+        # ✅ أزرار التواصل
+        contact_keyboard = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("📩 التواصل مع العميل", callback_data=f"contact_customer:{trip['trip_id']}:{driver.id}"),
+                InlineKeyboardButton("📩 تواصل مع العميل", callback_data=f"contact_customer:{trip_id}:{driver.id}"),
             ],
             [
-                InlineKeyboardButton("🚕 التواصل مع الكابتن", callback_data=f"contact_driver:{trip['trip_id']}:{driver.id}"),
+                InlineKeyboardButton("🚕 تواصل مع الكابتن", callback_data=f"contact_driver:{trip_id}:{driver.id}"),
             ],
         ])
         
-        await message.reply_text(card_text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
-        await message.reply_text(random.choice(READY_MESSAGES), parse_mode=ParseMode.HTML)
+        # إرسال الكرت في القروب
+        await context.bot.send_message(
+            chat_id=GROUP_ID,
+            text=card_text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=contact_keyboard
+        )
+        
+        await query.answer("✅ تم تسجيلك للمشوار!", show_alert=True)
     
     async def handle_location(self, update, context, text):
         message = update.message
@@ -838,35 +700,6 @@ class SmartRidesBot:
             parse_mode=ParseMode.HTML
         )
     
-    async def handle_violation(self, update, context, reason):
-        message = update.message
-        user = update.effective_user
-        
-        try:
-            await message.delete()
-        except:
-            pass
-        
-        count = self.db.add_violation(user.id)
-        
-        if count >= 4:
-            try:
-                until = datetime.now(SAUDI_TZ) + timedelta(hours=MUTE_HOURS)
-                await context.bot.restrict_chat_member(
-                    GROUP_ID, user.id,
-                    permissions=ChatPermissions(can_send_messages=False),
-                    until_date=until
-                )
-                await context.bot.send_message(GROUP_ID, f"🔇 <b>تم كتم العضو</b>\n\n{self.display_user(user)}", parse_mode=ParseMode.HTML)
-            except:
-                pass
-        elif count == 3:
-            await context.bot.send_message(GROUP_ID, f"🔴 <b>المخالفة الثالثة</b>\n\n{self.display_user(user)}", parse_mode=ParseMode.HTML)
-        elif count == 2:
-            await context.bot.send_message(GROUP_ID, f"🟠 <b>المخالفة الثانية</b>\n\n{self.display_user(user)}", parse_mode=ParseMode.HTML)
-        else:
-            await context.bot.send_message(GROUP_ID, f"🟡 <b>تنبيه للمرة الأولى</b>\n\n{self.display_user(user)}", parse_mode=ParseMode.HTML)
-    
     async def contact_customer(self, update, context):
         query = update.callback_query
         user = query.from_user
@@ -882,11 +715,7 @@ class SmartRidesBot:
             await query.answer("أنت غير مسجل لهذا المشوار!", show_alert=True)
             return
         
-        with self.db.connect() as con:
-            cur = con.cursor()
-            cur.execute("SELECT * FROM trips WHERE trip_id = ?", (trip_id,))
-            row = cur.fetchone()
-            trip = dict(row) if row else None
+        trip = self.db.get_trip(trip_id)
         
         if trip:
             await query.answer("📩 فتح تواصل العميل...", url=f"tg://user?id={trip['customer_id']}")
@@ -898,11 +727,7 @@ class SmartRidesBot:
         trip_id = int(data[1])
         driver_id = int(data[2])
         
-        with self.db.connect() as con:
-            cur = con.cursor()
-            cur.execute("SELECT * FROM trips WHERE trip_id = ?", (trip_id,))
-            row = cur.fetchone()
-            trip = dict(row) if row else None
+        trip = self.db.get_trip(trip_id)
         
         if not trip or trip["customer_id"] != user.id:
             await query.answer("هذا الزر مخصص لصاحب الطلب فقط!", show_alert=True)
@@ -923,35 +748,13 @@ class SmartRidesBot:
     async def cmd_help(self, update, context):
         await update.message.reply_text(
             "👤 <b>عميل:</b> اكتب «مشوار من X إلى Y»\n"
-            "🚕 <b>كابتن:</b> اقتبس رسالة العميل واكتب «جاهز»",
+            "🚕 <b>كابتن:</b> اضغط زر «أنا جاهز» تحت الطلب",
             parse_mode=ParseMode.HTML
         )
-    
-    async def cmd_top(self, update, context):
-        rows = self.db.get_top_users(10)
-        if not rows:
-            await update.message.reply_text("📊 لا يوجد نقاط بعد!")
-            return
-        text = "🏆 <b>لوحة الصدارة</b>\n\n"
-        medals = ["🥇", "🥈", "🥉"]
-        for i, row in enumerate(rows):
-            medal = medals[i] if i < 3 else f"{i+1}️⃣"
-            text += f"{medal} {self.html(row['name'])} - {row['points']} نقطة\n"
-        await update.message.reply_text(text, parse_mode=ParseMode.HTML)
     
     async def smart_reminder(self, context):
         current_hour = datetime.now(SAUDI_TZ).hour
         if 2 <= current_hour < 8:
-            return
-        text = random.choice(REMINDERS).format(GROUP_NAME=GROUP_NAME, GROUP_LINK=GROUP_LINK)
-        try:
-            await context.bot.send_message(chat_id=GROUP_ID, text=text, parse_mode=ParseMode.HTML)
-        except:
-            pass
-    
-    async def engagement_reminder(self, context):
-        current_hour = datetime.now(SAUDI_TZ).hour
-        if 2 <= current_hour < 7:
             return
         text = random.choice(ENGAGEMENT_MESSAGES)
         try:
@@ -962,18 +765,17 @@ class SmartRidesBot:
     def run(self):
         app = Application.builder().token(TOKEN).build()
         
-        app.job_queue.run_repeating(self.engagement_reminder, interval=ENGAGEMENT_INTERVAL, first=60)
-        app.job_queue.run_repeating(self.smart_reminder, interval=REMINDER_INTERVAL, first=REMINDER_INTERVAL)
+        app.job_queue.run_repeating(self.smart_reminder, interval=ENGAGEMENT_INTERVAL, first=60)
         
         app.add_handler(CommandHandler("start", self.cmd_start))
         app.add_handler(CommandHandler("rules", self.cmd_rules))
         app.add_handler(CommandHandler("help", self.cmd_help))
-        app.add_handler(CommandHandler("top", self.cmd_top))
         
         app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.welcome_new_member))
         
         app.add_handler(CallbackQueryHandler(self.role_selection, pattern="^role_"))
         app.add_handler(CallbackQueryHandler(self.show_rules, pattern="^rules$"))
+        app.add_handler(CallbackQueryHandler(self.handle_take_trip, pattern="^take_trip:"))
         app.add_handler(CallbackQueryHandler(self.contact_customer, pattern="^contact_customer:"))
         app.add_handler(CallbackQueryHandler(self.contact_driver, pattern="^contact_driver:"))
         
