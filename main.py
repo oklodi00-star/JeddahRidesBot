@@ -1252,26 +1252,69 @@ async def create_trip(message, context):
 async def ready_button(update, context):
 
     query = update.callback_query
+
+    if not query:
+        return
+
     driver = query.from_user
 
     if not driver:
-        await query.answer()
+        await query.answer(
+            "تعذر التعرف على حسابك.",
+            show_alert=True
+        )
         return
 
-    try:
-        trip_id = int(query.data.split(":")[1])
-    except Exception:
+    logger.info(
+        "READY BUTTON PRESSED | user=%s | data=%s",
+        driver.id,
+        query.data
+    )
 
+    # تأكيد استلام الضغط مباشرة
+    try:
         await query.answer(
-            "حدث خطأ في زر المشوار.",
-            show_alert=True,
+            "⏳ جاري تسجيل جاهزيتك...",
+            show_alert=False
+        )
+    except Exception as error:
+        logger.error(
+            "READY CALLBACK ANSWER ERROR: %s",
+            error
         )
 
+    # استخراج رقم بطاقة المشوار
+    try:
+        parts = (query.data or "").split(":", 1)
+
+        if len(parts) != 2:
+            raise ValueError("Invalid callback data")
+
+        trip_id = int(parts[1])
+
+    except Exception as error:
+
+        logger.error(
+            "READY CALLBACK DATA ERROR: %s | data=%s",
+            error,
+            query.data
+        )
+
+        try:
+            await query.answer(
+                "⚠️ بيانات زر المشوار غير صحيحة.",
+                show_alert=True
+            )
+        except Exception:
+            pass
+
         return
 
+    # تسجيل المستخدم ككابتن تلقائيًا
     save_user(driver)
     mark_driver(driver)
 
+    # جلب بيانات بطاقة المشوار
     with db() as con:
 
         cur = con.cursor()
@@ -1290,24 +1333,31 @@ async def ready_button(update, context):
 
         trip = cur.fetchone()
 
-    if trip:
+    if not trip:
 
-        customer_id = trip[0]
-        customer_username = trip[1] or ""
-        start = trip[2] or ""
-        destination = trip[3] or ""
-        original_text = trip[4] or ""
-        created_at = trip[5] or ""
+        logger.error(
+            "TRIP NOT FOUND | trip_id=%s | user=%s",
+            trip_id,
+            driver.id
+        )
 
-    else:
+        try:
+            await query.answer(
+                "⚠️ هذه بطاقة مشوار قديمة وغير محفوظة.",
+                show_alert=True
+            )
+        except Exception:
+            pass
 
-        customer_id = None
-        customer_username = ""
-        start = ""
-        destination = ""
-        original_text = ""
-        created_at = ""
+        return
 
+    customer_id = trip[0]
+    customer_username = trip[1] or ""
+    start = trip[2] or ""
+    destination = trip[3] or ""
+    original_text = trip[4] or ""
+
+    # التأكد من عدم تسجيل نفس الكابتن مرتين
     with db() as con:
 
         cur = con.cursor()
@@ -1326,10 +1376,13 @@ async def ready_button(update, context):
 
         if already_ready:
 
-            await query.answer(
-                "أنت مسجل لهذا المشوار بالفعل ✅",
-                show_alert=True,
-            )
+            try:
+                await query.answer(
+                    "أنت مسجل لهذا المشوار بالفعل ✅",
+                    show_alert=True
+                )
+            except Exception:
+                pass
 
             return
 
@@ -1346,64 +1399,71 @@ async def ready_button(update, context):
 
         con.commit()
 
-    await query.answer(
-        random.choice(READY_MESSAGES),
-        show_alert=True,
-    )
+    # رسالة النجاح
+    try:
+        await query.answer(
+            random.choice(READY_MESSAGES),
+            show_alert=True
+        )
+    except Exception:
+        pass
 
+    # تجهيز تفاصيل الطريق
     if start and destination:
 
         route = (
-            f"\n📍 <b>من:</b> {html(start)}"
-            f"\n🏁 <b>إلى:</b> {html(destination)}"
+            f"📍 <b>من:</b> {html(start)}\n"
+            f"🏁 <b>إلى:</b> {html(destination)}"
         )
 
     elif original_text:
 
         route = (
-            f"\n📝 <b>تفاصيل الطلب:</b>\n"
+            "📝 <b>تفاصيل الطلب:</b>\n"
             f"{html(original_text)}"
         )
 
     else:
 
         route = (
-            "\n📅 <b>مشوار قديم / شهري</b>\n"
-            "تم تسجيل جاهزية الكابتن لهذا الطلب."
+            "📅 <b>تم تسجيل الجاهزية للمشوار.</b>"
         )
 
+    driver_display = display_user(driver)
+
+    text = (
+        "🚕 <b>كابتن جاهز للمشوار</b>\n\n"
+        f"👨‍✈️ {driver_display}\n\n"
+        f"{route}\n\n"
+        "💰 السعر والتفاهم بالخاص."
+    )
+
+    keyboard_rows = []
+
+    if customer_id:
+
+        keyboard_rows.append([
+            InlineKeyboardButton(
+                "📩 تواصل مع العميل",
+                callback_data=f"contact:{trip_id}:{driver.id}",
+            ),
+            InlineKeyboardButton(
+                "📞 تواصل مع الكابتن",
+                callback_data=f"contactdriver:{customer_id}:{driver.id}",
+            ),
+        ])
+
+    else:
+
+        keyboard_rows.append([
+            InlineKeyboardButton(
+                "📩 تواصل مع الإدارة",
+                url=f"https://t.me/{ADMIN_USERNAME}",
+            ),
+        ])
+
+    # إرسال إعلان الجاهزية للقروب
     try:
-
-        text = (
-            "🚕 <b>كابتن جاهز للمشوار</b>\n\n"
-            f"👨‍✈️ {display_user(driver)}"
-            f"{route}\n\n"
-            "💰 السعر والتفاهم بالخاص."
-        )
-
-        keyboard_rows = []
-
-        if customer_id:
-
-            keyboard_rows.append([
-                InlineKeyboardButton(
-                    "📩 تواصل مع العميل",
-                    callback_data=f"contact:{trip_id}:{driver.id}",
-                ),
-                InlineKeyboardButton(
-                    "📞 تواصل مع الكابتن",
-                    callback_data=f"contactdriver:{customer_id}:{driver.id}",
-                ),
-            ])
-
-        else:
-
-            keyboard_rows.append([
-                InlineKeyboardButton(
-                    "📩 تواصل مع الإدارة",
-                    url=f"https://t.me/{ADMIN_USERNAME}",
-                ),
-            ])
 
         await context.bot.send_message(
             chat_id=GROUP_ID,
@@ -1415,12 +1475,39 @@ async def ready_button(update, context):
             reply_to_message_id=trip_id,
         )
 
+        logger.info(
+            "READY SUCCESS | trip=%s | driver=%s",
+            trip_id,
+            driver.id
+        )
+
     except Exception as error:
 
         logger.error(
-            "Ready notification error: %s",
+            "READY SEND ERROR: %s",
             error,
+            exc_info=True
         )
+
+        # محاولة ثانية بدون الرد على البطاقة
+        try:
+
+            await context.bot.send_message(
+                chat_id=GROUP_ID,
+                text=text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=InlineKeyboardMarkup(
+                    keyboard_rows
+                ),
+            )
+
+        except Exception as second_error:
+
+            logger.error(
+                "READY FALLBACK ERROR: %s",
+                second_error,
+                exc_info=True
+            )
 
 
 # ============================================================
@@ -1523,8 +1610,7 @@ async def contact_customer_button(update, context):
         return
 
     await query.answer(
-        "هذا المشوار قديم وبيانات العميل غير محفوظة عند البوت.\n"
-        "لكن زر الجاهزية نفسه ما زال شغال.",
+        "هذا المشوار قديم وبيانات العميل غير محفوظة عند البوت.",
         show_alert=True,
     )
 
@@ -2310,15 +2396,6 @@ async def callback_handler(update, context):
 
         return
 
-    if data.startswith("ready:"):
-
-        await ready_button(
-            update,
-            context,
-        )
-
-        return
-
     if (
         data.startswith("role_customer:")
         or data.startswith("role_driver:")
@@ -2445,6 +2522,19 @@ def main():
         )
     )
 
+    # ========================================================
+    # 🔥 مهم جدًا:
+    # زر جاهز له Handler مستقل وقبل الـ Handler العام
+    # ========================================================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            ready_button,
+            pattern=r"^ready:\d+$",
+        )
+    )
+
+    # باقي أزرار البوت
     application.add_handler(
         CallbackQueryHandler(
             callback_handler
@@ -2474,6 +2564,11 @@ def main():
 
     print(
         "👋 Member leave monitoring: OWNER private notification",
+        flush=True,
+    )
+
+    print(
+        "🚕 Ready button handler: ENABLED",
         flush=True,
     )
 
