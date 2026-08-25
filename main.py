@@ -625,6 +625,37 @@ class SmartRidesBot:
         if not text:
             return
         
+        # ========================================================
+        # 🎯 التعرف على "أنا كابتن" و "أنا عميل" كرسالة نصية
+        # ========================================================
+        
+        normalized_text = self.normalize_text(text).strip()
+        
+        if normalized_text in ["انا كابتن", "انا سايق", "انا سواق"]:
+            self.db.save_user(user)
+            self.db.set_role(user.id, "driver")
+            await message.reply_text(
+                f"✅ <b>تم تسجيلك ككابتن!</b>\n\n"
+                f"🚕 <b>طريقة قبول المشوار:</b>\n"
+                f"اقتبس رسالة العميل واكتب «جاهز»\n\n"
+                f"📍 <b>أعلن موقعك مرة يومياً:</b>\n"
+                f"اكتب «موجود في الحمدانية لأي مشوار»",
+                parse_mode=ParseMode.HTML
+            )
+            return
+        
+        if normalized_text in ["انا عميل", "انا زبون", "انا طالب"]:
+            self.db.save_user(user)
+            self.db.set_role(user.id, "customer")
+            await message.reply_text(
+                f"✅ <b>تم تسجيلك كعميل!</b>\n\n"
+                f"👤 <b>طريقة طلب المشوار:</b>\n"
+                f"اكتب طلبك مباشرة مثل:\n"
+                f"«مشوار من الفضيلة إلى الرغامة»",
+                parse_mode=ParseMode.HTML
+            )
+            return
+        
         if self.is_forwarded(message) and not await self.is_admin(update, context):
             try:
                 await message.delete()
@@ -655,6 +686,11 @@ class SmartRidesBot:
             return
         
         if self.looks_like_location(text):
+            # إذا مش مسجل ككابتن، نسجله تلقائياً
+            if not self.db.is_driver(user.id):
+                self.db.save_user(user)
+                self.db.set_role(user.id, "driver")
+            
             await self.handle_location(update, context, text)
             return
         
