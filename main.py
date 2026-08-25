@@ -1162,7 +1162,6 @@ class SmartRidesBot:
         
         confirm_message = await message.reply_text(confirm_text, parse_mode=ParseMode.HTML)
         
-        # حفظ معرف رسالة التأكيد
         with self.db.connect() as con:
             cur = con.cursor()
             cur.execute("""
@@ -1184,12 +1183,19 @@ class SmartRidesBot:
         
         replied_message = message.reply_to_message
         
-        # البحث عن الرحلة - أولاً عن طريق معرف الرسالة الأصلية
+        # البحث عن الرحلة بكل الطرق
         trip = self.db.get_trip_by_message(replied_message.message_id)
         
-        # إذا ما لقينا، نبحث عن طريق معرف رسالة التأكيد
         if not trip:
             trip = self.db.get_trip_by_confirm_message(replied_message.message_id)
+        
+        if not trip:
+            with self.db.connect() as con:
+                cur = con.cursor()
+                cur.execute("SELECT * FROM trips ORDER BY trip_id DESC LIMIT 1")
+                row = cur.fetchone()
+                if row:
+                    trip = dict(row)
         
         if not trip:
             await message.reply_text(
@@ -1355,11 +1361,14 @@ class SmartRidesBot:
             await query.answer("أنت غير مسجل لهذا المشوار!", show_alert=True)
             return
         
-        trip = self.db.get_trip_by_message(trip_id)
-        customer_id = trip["customer_id"] if trip else None
+        with self.db.connect() as con:
+            cur = con.cursor()
+            cur.execute("SELECT * FROM trips WHERE trip_id = ?", (trip_id,))
+            row = cur.fetchone()
+            trip = dict(row) if row else None
         
-        if customer_id:
-            await query.answer("📩 فتح تواصل العميل...", url=f"tg://user?id={customer_id}")
+        if trip:
+            await query.answer("📩 فتح تواصل العميل...", url=f"tg://user?id={trip['customer_id']}")
     
     async def contact_driver(self, update, context):
         query = update.callback_query
@@ -1369,7 +1378,11 @@ class SmartRidesBot:
         trip_id = int(data[1])
         driver_id = int(data[2])
         
-        trip = self.db.get_trip_by_message(trip_id)
+        with self.db.connect() as con:
+            cur = con.cursor()
+            cur.execute("SELECT * FROM trips WHERE trip_id = ?", (trip_id,))
+            row = cur.fetchone()
+            trip = dict(row) if row else None
         
         if not trip or trip["customer_id"] != user.id:
             await query.answer("هذا الزر مخصص لصاحب الطلب فقط!", show_alert=True)
@@ -1401,21 +1414,11 @@ class SmartRidesBot:
 🚕 <b>للكابتن:</b>
 اقتبس رسالة العميل أو رسالة التأكيد واكتب «جاهز»
 
-📋 <b>أنواع المشاوير:</b>
-• 🚗 عادي: توصيلة واحدة
-• 🔄 شهري: دوام، مدرسة، جامعة
-
-💰 <b>السعر:</b>
-تقدر تكتب: «مشوار من X إلى Y بـ 30 ريال»
-
 ✍️ <b>التسجيل:</b>
 اكتب «أنا كابتن» أو «أنا عميل»
 
 💬 <b>سوالف:</b>
 اكتب أي شي وأنا أرد عليك!
-
-🏆 <b>لوحة الصدارة:</b>
-اكتب /top
 
 📩 <b>الإدارة:</b> @{ADMIN_USERNAME}
         """
@@ -1526,6 +1529,11 @@ class SmartRidesBot:
 if __name__ == "__main__":
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
     logger = logging.getLogger(__name__)
+    
+    # حذف قاعدة البيانات القديمة
+    if os.path.exists(DB_FILE):
+        os.remove(DB_FILE)
+        print("✅ تم حذف قاعدة البيانات القديمة")
     
     bot = SmartRidesBot()
     bot.run()
