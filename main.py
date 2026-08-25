@@ -1,5 +1,5 @@
 """
-🤖 بوت مشاوير جدة الذكي - النسخة النهائية بالأزرار
+🤖 بوت مشاوير جدة الذكي - النسخة النهائية
 """
 
 import os
@@ -45,7 +45,6 @@ CUSTOMER_BADGE = "𓆩👤𓆪 عميل"
 REMINDER_INTERVAL = 30 * 60
 ENGAGEMENT_INTERVAL = 45 * 60
 MUTE_HOURS = 24
-VIOLATION_RESET_DAYS = 30
 
 # ============================================================
 # 📋 قانون القروب
@@ -89,6 +88,9 @@ MONTHLY_TRIP_WORDS = [
     "مشوار يومي", "توصيل يومي", "مشوار شهري",
     "مستمر", "دائم", "باستمرار",
     "موظف", "موظفة", "طالب", "طالبة",
+    "التزام", "التزام شهري", "التزام يومي",
+    "مكان المنزل", "مكان الدوام", "لوكيشن",
+    "عدد الايام", "عدد ايام الدوام",
 ]
 
 NORMAL_TRIP_WORDS = [
@@ -124,7 +126,7 @@ GREETINGS = [
     ),
     (
         ["صباح الخير", "صباحكم خير"],
-        ["صباح النور والرزق 🌹🚘", "صباح الخير يا أهل المشاوير ☀️"],
+        ["صباح النور والرزق 🌹🚘", "صباح الخير ☀️"],
     ),
     (
         ["مساء الخير", "مساءكم خير"],
@@ -132,7 +134,7 @@ GREETINGS = [
     ),
     (
         ["شكرا", "مشكور", "يعطيك العافيه"],
-        ["العفو يا الغالي 🌹", "الله يعافيك ويسعدك ❤️"],
+        ["العفو يا الغالي 🌹", "الله يعافيك ❤️"],
     ),
 ]
 
@@ -142,23 +144,23 @@ CHAT_RESPONSES = [
         ["بخير دامك بخير 🌹", "تمام وأنت؟ 😊"],
     ),
     (
-        ["وش تسوي", "وش قاعد تسوي"],
-        ["قاعد أنتظر مشوارك 😎🚘", "جاهز لأي طلب توصيل 🚕"],
+        ["وش تسوي"],
+        ["قاعد أنتظر مشوارك 😎🚘"],
     ),
     (
         ["تحبني", "تحبنا"],
-        ["أحب كل عملاء القروب ❤️", "أكيد أحبك 🌹"],
+        ["أحب كل عملاء القروب ❤️"],
     ),
     (
         ["انت ذكي"],
-        ["ذكي جداً 🧠", "أنا أذكى بوت مشاوير 😎"],
+        ["ذكي جداً 🧠"],
     ),
     (
         ["تزوجت", "متزوج"],
         ["لا، أنا بوت متفرغ للمشاوير 😂"],
     ),
     (
-        ["وينك", "انت وين"],
+        ["وينك"],
         ["هنا في القروب 🫡"],
     ),
     (
@@ -166,15 +168,15 @@ CHAT_RESPONSES = [
         ["تفضل! أنا هنا لأي سوالف 💬"],
     ),
     (
-        ["نكت", "قول نكتة", "اضحكني"],
-        ["مرة كابتن قال للعميل: اركب\nالعميل قال: ما أقدر\nالكابتن قال: ليه\nالعميل قال: لأني في البيت 😂"],
+        ["نكت", "قول نكتة"],
+        ["مرة كابتن راح ياخذ عميل... نسيه وراح 😂"],
     ),
     (
         ["شسمك", "اسمك"],
         ["اسمي بوت المشاوير 😎"],
     ),
     (
-        ["طفشان", "ملل", "زهقان"],
+        ["طفشان", "ملل"],
         ["طفشان؟ اطلب مشوار وتروق 🚘"],
     ),
     (
@@ -182,28 +184,20 @@ CHAT_RESPONSES = [
         ["حبيبي أنت 🌹"],
     ),
     (
-        ["حزين", "زعلان", "تعبان"],
+        ["حزين", "زعلان"],
         ["لا تحزن، المشاوير تنسيك الهم 🚘"],
     ),
     (
-        ["كم السعر", "بكم", "الاسعار"],
+        ["كم السعر", "بكم"],
         ["💰 السعر والتفاهم بالخاص 🤝"],
     ),
     (
-        ["وين الكباتن", "الكباتن"],
-        ["الكباتن موجودين 🚕 اكتب مشوارك!"],
-    ),
-    (
         ["بوت", "يا بوت"],
-        ["نعم! أنا هنا 🤖 تحت أمرك"],
+        ["نعم! أنا هنا 🤖"],
     ),
     (
         ["تسلم", "الله يسعدك"],
-        ["الله يسلمك 🌹", "ويسعدك يا رب ❤️"],
-    ),
-    (
-        ["ارحبو", "حي الله"],
-        ["الله يحييك 🌹"],
+        ["الله يسلمك 🌹"],
     ),
 ]
 
@@ -216,13 +210,9 @@ READY_MESSAGES = [
 ENGAGEMENT_MESSAGES = [
     "🌅 <b>صباح الخير!</b>\n\nمن عنده مشوار اليوم؟ 🚕",
     "🚕 <b>الكباتن!</b>\n\nأعلنوا مواقعكم 📍",
-    "🧑🏻‍💼 <b>العملاء!</b>\n\nاكتبوا مشاويركم 🚗",
 ]
 
-BAD_WORDS = [
-    "يا غبي", "يا حمار", "يا كلب", "يا تافه",
-    "قليل الادب", "انقلع",
-]
+BAD_WORDS = ["يا غبي", "يا حمار", "انقلع"]
 
 # ============================================================
 # 💾 قاعدة البيانات
@@ -271,13 +261,6 @@ class Database:
                     driver_id INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(trip_id, driver_id)
-                )
-            """)
-            
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS driver_locations (
-                    driver_id INTEGER PRIMARY KEY,
-                    last_date TEXT
                 )
             """)
             
@@ -344,18 +327,6 @@ class Database:
             cur = con.cursor()
             cur.execute("SELECT 1 FROM ready_drivers WHERE trip_id = ? AND driver_id = ?", (trip_id, driver_id))
             return cur.fetchone() is not None
-    
-    def check_location_today(self, driver_id):
-        today = datetime.now(SAUDI_TZ).date().isoformat()
-        with self.connect() as con:
-            cur = con.cursor()
-            cur.execute("SELECT last_date FROM driver_locations WHERE driver_id = ?", (driver_id,))
-            row = cur.fetchone()
-            if row and row[0] == today:
-                return True
-            cur.execute("INSERT OR REPLACE INTO driver_locations (driver_id, last_date) VALUES (?, ?)", (driver_id, today))
-            con.commit()
-            return False
 
 # ============================================================
 # 🤖 البوت الرئيسي
@@ -389,18 +360,49 @@ class SmartRidesBot:
             return "normal"
         return None
     
+    def looks_like_trip(self, text):
+        """🧠 فهم أي نوع طلب مشوار"""
+        normalized = self.normalize_text(text)
+        
+        if self.detect_trip_type(text):
+            return True
+        
+        if re.search(r"من\s+.+?\s+(?:الى|إلى|الي)\s+.+", text, re.IGNORECASE):
+            return True
+        
+        trip_indicators = [
+            "مكان المنزل", "مكان الدوام", "لوكيشن", "وقت",
+            "السعر", "التزام", "مشوار", "توصيل",
+            "عدد الايام", "دوام", "مدرسه", "مدرسة",
+        ]
+        
+        for word in trip_indicators:
+            if self.normalize_text(word) in normalized:
+                return True
+        
+        return False
+    
     def extract_route(self, text):
+        # النمط العادي
         match = re.search(r"من\s+(.+?)\s+(?:الى|إلى|الي|لل)\s+(.+)", text, re.IGNORECASE)
         if match:
             return match.group(1).strip(), match.group(2).strip()
-        if "→" in text or "->" in text:
-            parts = re.split(r"→|->", text)
-            if len(parts) >= 2:
-                return parts[0].strip(), parts[1].strip()
+        
+        # استخراج من رسالة طويلة
+        home_match = re.search(r"مكان المنزل\s*[:：]\s*(.+)", text, re.IGNORECASE)
+        work_match = re.search(r"مكان الدوام\s*[:：]\s*(.+)", text, re.IGNORECASE)
+        
+        if home_match and work_match:
+            return home_match.group(1).strip(), work_match.group(1).strip()
+        
+        # لوكيشن
+        home_loc = re.search(r"لوكيشن المنزل\s*[:：]\s*(.+)", text, re.IGNORECASE)
+        work_loc = re.search(r"لوكيشن العمل\s*[:：]\s*(.+)", text, re.IGNORECASE)
+        
+        if home_loc and work_loc:
+            return home_loc.group(1).strip(), work_loc.group(1).strip()
+        
         return None, None
-    
-    def looks_like_trip(self, text):
-        return self.detect_trip_type(text) is not None
     
     def looks_like_location(self, text):
         normalized = self.normalize_text(text)
@@ -420,15 +422,6 @@ class SmartRidesBot:
             for phrase in phrases:
                 if normalized.startswith(self.normalize_text(phrase)):
                     return random.choice(responses)
-        return None
-    
-    def violation_reason(self, text):
-        normalized = self.normalize_text(text).strip()
-        if normalized in ["خاص", "الخاص"]:
-            return "خاص"
-        for word in BAD_WORDS:
-            if self.normalize_text(word) in normalized:
-                return "إساءة"
         return None
     
     def get_role_badge(self, user_id):
@@ -459,7 +452,7 @@ class SmartRidesBot:
 نورت <b>{GROUP_NAME}</b> 🚘
 
 👤 <b>عميل:</b>
-اكتب: «مشوار من الفضيلة إلى الرغامة»
+اكتب طلبك مباشرة
 
 🚕 <b>كابتن:</b>
 اضغط زر «أنا جاهز» تحت الطلب
@@ -497,9 +490,9 @@ class SmartRidesBot:
         self.db.save_user(user)
         self.db.set_role(target_id, role)
         if role == "customer":
-            confirm_text = "✅ <b>تم تسجيلك كعميل!</b>\n\nاكتب مشوارك مباشرة"
+            confirm_text = "✅ <b>تم تسجيلك كعميل!</b>"
         else:
-            confirm_text = "✅ <b>تم تسجيلك ككابتن!</b>\n\nاضغط زر «أنا جاهز» تحت أي طلب"
+            confirm_text = "✅ <b>تم تسجيلك ككابتن!</b>"
         await query.message.reply_text(confirm_text, parse_mode=ParseMode.HTML)
     
     async def show_rules(self, update, context):
@@ -524,32 +517,17 @@ class SmartRidesBot:
         if normalized_text in ["انا كابتن", "انا سايق", "انا سواق"]:
             self.db.save_user(user)
             self.db.set_role(user.id, "driver")
-            await message.reply_text("✅ <b>تم تسجيلك ككابتن!</b>\n\nاضغط زر «أنا جاهز» تحت أي طلب", parse_mode=ParseMode.HTML)
+            await message.reply_text("✅ <b>تم تسجيلك ككابتن!</b>", parse_mode=ParseMode.HTML)
             return
         
         if normalized_text in ["انا عميل", "انا زبون", "انا طالب"]:
             self.db.save_user(user)
             self.db.set_role(user.id, "customer")
-            await message.reply_text("✅ <b>تم تسجيلك كعميل!</b>\n\nاكتب طلبك مباشرة", parse_mode=ParseMode.HTML)
+            await message.reply_text("✅ <b>تم تسجيلك كعميل!</b>", parse_mode=ParseMode.HTML)
             return
         
         if self.looks_like_trip(text):
             await self.handle_trip_request(update, context, text)
-            return
-        
-        if self.looks_like_location(text):
-            if not self.db.is_driver(user.id):
-                self.db.save_user(user)
-                self.db.set_role(user.id, "driver")
-            await self.handle_location(update, context, text)
-            return
-        
-        reason = self.violation_reason(text)
-        if reason:
-            try:
-                await message.delete()
-            except:
-                pass
             return
         
         chat_response = self.get_chat_response(text)
@@ -569,9 +547,10 @@ class SmartRidesBot:
         pickup, destination = self.extract_route(text)
         
         if not pickup or not destination:
-            return
+            pickup = "غير محدد"
+            destination = "غير محدد"
         
-        trip_type = self.detect_trip_type(text)
+        trip_type = self.detect_trip_type(text) or "normal"
         
         trip_id = self.db.create_trip(
             message_id=message.message_id,
@@ -587,14 +566,14 @@ class SmartRidesBot:
 ✅ <b>تم تسجيل طلبك!</b>
 
 📋 <b>نوع المشوار:</b> {type_badge}
-📍 <b>من:</b> {self.html(pickup)}
-🎯 <b>إلى:</b> {self.html(destination)}
 
 🚕 <b>للكباتن:</b>
 اضغطوا الزر بالأسفل 👇
+
+📝 <b>تفاصيل الطلب:</b>
+{self.html(text)}
         """
         
-        # ✅ أزرار للكابتن
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("🚕 أنا جاهز للمشوار", callback_data=f"take_trip:{trip_id}:{user.id}"),
@@ -610,32 +589,28 @@ class SmartRidesBot:
     async def handle_take_trip(self, update, context):
         """🚕 الكابتن يضغط زر أنا جاهز"""
         query = update.callback_query
-        await query.answer()
         
         driver = query.from_user
         data = query.data.split(":")
         trip_id = int(data[1])
         customer_id = int(data[2])
         
-        # منع العميل من أخذ مشواره
+        # ✅ منع العميل من أخذ مشواره
         if driver.id == customer_id:
             await query.answer("😂 ما تقدر تأخذ مشوارك بنفسك!", show_alert=True)
             return
         
-        # حفظ الكابتن
         self.db.save_user(driver)
         
         if not self.db.is_driver(driver.id):
             self.db.set_role(driver.id, "driver")
         
-        # إضافة الكابتن
         added = self.db.add_ready_driver(trip_id, driver.id)
         
         if not added:
             await query.answer("✅ أنت مسجل جاهز لهذا المشوار بالفعل!", show_alert=True)
             return
         
-        # جلب بيانات الرحلة
         trip = self.db.get_trip(trip_id)
         
         if not trip:
@@ -644,7 +619,6 @@ class SmartRidesBot:
         
         type_badge = "🔄 شهري" if trip["trip_type"] == "monthly" else "🚗 عادي"
         
-        # ✅ كرت الكابتن الجاهز
         card_text = f"""
 🚕 <b>كابتن جاهز!</b>
 
@@ -655,11 +629,8 @@ class SmartRidesBot:
 🎯 <b>إلى:</b> {self.html(trip["destination"])}
 
 💰 <b>السعر:</b> بالتفاهم بالخاص
-
-━━━━━━━━━━━━━━━━
         """
         
-        # ✅ أزرار التواصل
         contact_keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("📩 تواصل مع العميل", callback_data=f"contact_customer:{trip_id}:{driver.id}"),
@@ -669,7 +640,6 @@ class SmartRidesBot:
             ],
         ])
         
-        # إرسال الكرت في القروب
         await context.bot.send_message(
             chat_id=GROUP_ID,
             text=card_text,
@@ -679,27 +649,6 @@ class SmartRidesBot:
         
         await query.answer("✅ تم تسجيلك للمشوار!", show_alert=True)
     
-    async def handle_location(self, update, context, text):
-        message = update.message
-        driver = update.effective_user
-        
-        if not self.db.is_driver(driver.id):
-            await message.reply_text("📍 هذا الإعلان مخصص للكباتن فقط 🚕", parse_mode=ParseMode.HTML)
-            return
-        
-        already_posted = self.db.check_location_today(driver.id)
-        
-        if already_posted:
-            await message.reply_text("😂 عرفنا وينك اليوم.\n\n📍 مرة واحدة فقط باليوم", parse_mode=ParseMode.HTML)
-            return
-        
-        await message.reply_text(
-            f"📍 <b>تم تسجيل تواجد الكابتن</b>\n\n"
-            f"{self.display_user(driver)}\n\n"
-            f"📌 {self.html(text)}",
-            parse_mode=ParseMode.HTML
-        )
-    
     async def contact_customer(self, update, context):
         query = update.callback_query
         user = query.from_user
@@ -708,11 +657,7 @@ class SmartRidesBot:
         driver_id = int(data[2])
         
         if user.id != driver_id:
-            await query.answer("هذا الزر مخصص للكابتن المسجل!", show_alert=True)
-            return
-        
-        if not self.db.is_driver_ready(trip_id, driver_id):
-            await query.answer("أنت غير مسجل لهذا المشوار!", show_alert=True)
+            await query.answer("هذا الزر مخصص للكابتن!", show_alert=True)
             return
         
         trip = self.db.get_trip(trip_id)
@@ -730,15 +675,14 @@ class SmartRidesBot:
         trip = self.db.get_trip(trip_id)
         
         if not trip or trip["customer_id"] != user.id:
-            await query.answer("هذا الزر مخصص لصاحب الطلب فقط!", show_alert=True)
+            await query.answer("هذا الزر مخصص لصاحب الطلب!", show_alert=True)
             return
         
         await query.answer("🚕 فتح تواصل الكابتن...", url=f"tg://user?id={driver_id}")
     
     async def cmd_start(self, update, context):
         await update.message.reply_text(
-            f"🚘 <b>أهلاً بك في {GROUP_NAME}</b>\n\n"
-            "🤖 البوت يعمل بنجاح ✅",
+            f"🚘 <b>أهلاً بك في {GROUP_NAME}</b>\n\n🤖 البوت يعمل ✅",
             parse_mode=ParseMode.HTML
         )
     
@@ -747,8 +691,8 @@ class SmartRidesBot:
     
     async def cmd_help(self, update, context):
         await update.message.reply_text(
-            "👤 <b>عميل:</b> اكتب «مشوار من X إلى Y»\n"
-            "🚕 <b>كابتن:</b> اضغط زر «أنا جاهز» تحت الطلب",
+            "👤 <b>عميل:</b> اكتب طلبك\n"
+            "🚕 <b>كابتن:</b> اضغط زر «أنا جاهز»",
             parse_mode=ParseMode.HTML
         )
     
