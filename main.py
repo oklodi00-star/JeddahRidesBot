@@ -33,7 +33,7 @@ GROUP_LINK = "https://t.me/JeddahRides"
 OWNER_ID = 952638746
 ADMIN_USERNAME = "klodi500"
 ADMIN_USERNAMES = ["klodi500"]
-ADMIN_IDS = [952638746]
+ADMIN_IDS = [952638746]  # ⚠️ أضف ايديك هنا
 
 SAUDI_TZ = ZoneInfo("Asia/Riyadh")
 
@@ -79,22 +79,10 @@ NORMAL_TRIP_WORDS = [
 ]
 
 GREETINGS = [
-    (
-        ["السلام عليكم", "سلام عليكم"],
-        ["وعليكم السلام 🌹🚘", "وعليكم السلام يا هلا 👋"],
-    ),
-    (
-        ["هلا", "مرحبا", "اهلا"],
-        ["هلا وغلا 🌹", "يا هلا والله 👋"],
-    ),
-    (
-        ["صباح الخير"],
-        ["صباح النور ☀️🌹"],
-    ),
-    (
-        ["مساء الخير"],
-        ["مساء النور 🌙🌹"],
-    ),
+    (["السلام عليكم", "سلام عليكم"], ["وعليكم السلام 🌹🚘", "وعليكم السلام يا هلا 👋"]),
+    (["هلا", "مرحبا", "اهلا"], ["هلا وغلا 🌹", "يا هلا والله 👋"]),
+    (["صباح الخير"], ["صباح النور ☀️🌹"]),
+    (["مساء الخير"], ["مساء النور 🌙🌹"]),
 ]
 
 CHAT_RESPONSES = [
@@ -342,16 +330,24 @@ class SmartRidesBot:
         
         if data.startswith("role_customer:"):
             role = "customer"
-            role_text = "✅ <b>تم تسجيلك كعميل!</b>"
+            role_text = "✅ <b>تم تسجيله كعميل!</b>"
         elif data.startswith("role_driver:"):
             role = "driver"
-            role_text = "✅ <b>تم تسجيلك ككابتن!</b>"
+            role_text = "✅ <b>تم تسجيله ككابتن!</b>"
         else:
             return
         
         target_id = int(data.split(":")[1])
         
-        if user.id != target_id:
+        # ✅ السماح للأدمن بالتصنيف
+        is_admin = False
+        try:
+            member = await context.bot.get_chat_member(GROUP_ID, user.id)
+            is_admin = member.status in ["administrator", "creator"]
+        except:
+            pass
+        
+        if user.id != target_id and not is_admin and user.id not in ADMIN_IDS:
             await query.answer("هذا الزر مخصص للعضو الجديد فقط!", show_alert=True)
             return
         
@@ -447,14 +443,12 @@ class SmartRidesBot:
         await message.reply_text(confirm_text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
     
     async def handle_take_trip(self, update, context):
-        """🚕 الكابتن يضغط زر أنا جاهز"""
         query = update.callback_query
         driver = query.from_user
         data = query.data.split(":")
         trip_id = int(data[1])
         customer_id = int(data[2])
         
-        # ✅ منع العميل من أخذ مشواره
         if driver.id == customer_id:
             await query.answer("😂 ما تقدر تأخذ مشوارك بنفسك!", show_alert=True)
             return
@@ -576,7 +570,6 @@ class SmartRidesBot:
         
         app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.welcome_new_member))
         
-        # ✅ كل الأزرار مسجلة
         app.add_handler(CallbackQueryHandler(self.role_selection, pattern="^role_"))
         app.add_handler(CallbackQueryHandler(self.show_rules, pattern="^rules$"))
         app.add_handler(CallbackQueryHandler(self.handle_take_trip, pattern="^take_trip:"))
@@ -596,7 +589,6 @@ if __name__ == "__main__":
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
     logger = logging.getLogger(__name__)
     
-    # حذف قاعدة البيانات القديمة
     if os.path.exists(DB_FILE):
         os.remove(DB_FILE)
         print("✅ تم حذف قاعدة البيانات القديمة")
