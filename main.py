@@ -42,9 +42,7 @@ DB_FILE = "smart_rides.db"
 DRIVER_BADGE = "𓆩🚘𓆪 كابتن"
 CUSTOMER_BADGE = "𓆩👤𓆪 عميل"
 
-REMINDER_INTERVAL = 30 * 60
 ENGAGEMENT_INTERVAL = 45 * 60
-MUTE_HOURS = 24
 
 # ============================================================
 # 📋 قانون القروب
@@ -55,160 +53,69 @@ RULES_TEXT = f"""
 
 1️⃣ القروب للمشاوير والنقل فقط.
 
-2️⃣ العميل يكتب طلبه مباشرة:
-📍 من وين → إلى وين
+2️⃣ العميل يكتب طلبه مباشرة.
 
-3️⃣ 🚕 الكابتن يضغط زر «أنا جاهز» تحت الطلب
+3️⃣ 🚕 الكابتن يضغط زر «أنا جاهز» تحت الطلب.
 
-4️⃣ 💰 السعر والتفاهم بين العميل والكابتن بالخاص.
-
-5️⃣ 🚫 ممنوع كتابة «خاص» داخل القروب.
-
-6️⃣ 🚫 يمنع السب والإساءة.
-
-7️⃣ 🚫 يمنع نشر الإعلانات والروابط.
-
-8️⃣ 🔄 الرسائل المحولة ممنوعة.
-
-9️⃣ 📍 الكابتن يعلن موقعه مرة واحدة يوميًا.
-
-🔟 🤝 الاحترام واجب على الجميع.
+4️⃣ 💰 السعر والتفاهم بالخاص.
 
 📩 <b>الإدارة:</b> @{ADMIN_USERNAME}
 """
 
 # ============================================================
-# 🧠 الذكاء الخارق
+# 🧠 كلمات ذكية
 # ============================================================
 
 MONTHLY_TRIP_WORDS = [
-    "شهري", "بالشهر", "كل يوم", "يوميا", "يومياً",
-    "اسبوعي", "اسبوعيا", "أسبوعي", "أسبوعياً",
-    "دوام", "مدرسة", "جامعة", "عمل", "شغل",
-    "مشوار يومي", "توصيل يومي", "مشوار شهري",
-    "مستمر", "دائم", "باستمرار",
-    "موظف", "موظفة", "طالب", "طالبة",
-    "التزام", "التزام شهري", "التزام يومي",
-    "مكان المنزل", "مكان الدوام", "لوكيشن",
-    "عدد الايام", "عدد ايام الدوام",
+    "شهري", "بالشهر", "كل يوم", "يوميا", "دوام", "مدرسة", "جامعة",
+    "مشوار يومي", "توصيل يومي", "التزام", "مكان المنزل", "مكان الدوام",
+    "لوكيشن", "عدد الايام", "عدد ايام الدوام",
 ]
 
 NORMAL_TRIP_WORDS = [
-    "مشوار", "توصيل", "توصيلة", "توصلني",
-    "يوصلني", "يوديني", "ياخذني", "يشيلني",
-    "ابغى اروح", "ابي اروح", "ابغا اروح",
-    "ودي اروح", "اريد اروح", "احتاج اروح",
-    "ابغى مشوار", "ابي مشوار", "ابغا مشوار",
-    "احتاج مشوار", "محتاج مشوار", "احتاج توصيل",
-    "احد يوصلني", "مين يوصلني", "من يوصلني",
-    "فيه كابتن", "في كابتن", "كابتن يوصل",
-    "ممكن توصلني", "اوصلني", "ودني",
-    "عندي مشوار", "عندي توصيلة",
-    "الحين", "حالا", "بسرعة", "عاجل",
-    "ابي", "ابغى", "ابغا", "ودي", "اريد", "احتاج",
-]
-
-LOCATION_PHRASES = [
-    "متواجد في", "متواجد ب", "موجود في", "موجود ب",
-    "انا في", "انا موجود في", "متوفر في",
-    "متواجد", "موجود", "متوفر",
-    "موقعي في", "مكاني في", "انا عند",
+    "مشوار", "توصيل", "توصيلة", "يوصلني", "يوديني",
+    "ابغى مشوار", "ابي مشوار", "احتاج توصيل",
+    "من يوصلني", "فيه كابتن", "اوصلني", "ودني",
 ]
 
 GREETINGS = [
     (
         ["السلام عليكم", "سلام عليكم"],
-        ["وعليكم السلام ورحمة الله وبركاته 🌹🚘", "وعليكم السلام يا هلا والله 👋"],
+        ["وعليكم السلام 🌹🚘", "وعليكم السلام يا هلا 👋"],
     ),
     (
-        ["هلا", "هلا والله", "اهلا", "مرحبا"],
-        ["هلا وغلا 🌹🚘", "يا هلا والله 👋"],
+        ["هلا", "مرحبا", "اهلا"],
+        ["هلا وغلا 🌹", "يا هلا والله 👋"],
     ),
     (
-        ["صباح الخير", "صباحكم خير"],
-        ["صباح النور والرزق 🌹🚘", "صباح الخير ☀️"],
+        ["صباح الخير"],
+        ["صباح النور ☀️🌹"],
     ),
     (
-        ["مساء الخير", "مساءكم خير"],
-        ["مساء النور والخير 🌙🌹", "مساءكم طيب ❤️"],
-    ),
-    (
-        ["شكرا", "مشكور", "يعطيك العافيه"],
-        ["العفو يا الغالي 🌹", "الله يعافيك ❤️"],
+        ["مساء الخير"],
+        ["مساء النور 🌙🌹"],
     ),
 ]
 
 CHAT_RESPONSES = [
-    (
-        ["كيفك", "كيف حالك", "شلونك"],
-        ["بخير دامك بخير 🌹", "تمام وأنت؟ 😊"],
-    ),
-    (
-        ["وش تسوي"],
-        ["قاعد أنتظر مشوارك 😎🚘"],
-    ),
-    (
-        ["تحبني", "تحبنا"],
-        ["أحب كل عملاء القروب ❤️"],
-    ),
-    (
-        ["انت ذكي"],
-        ["ذكي جداً 🧠"],
-    ),
-    (
-        ["تزوجت", "متزوج"],
-        ["لا، أنا بوت متفرغ للمشاوير 😂"],
-    ),
-    (
-        ["وينك"],
-        ["هنا في القروب 🫡"],
-    ),
-    (
-        ["سولف", "اسولف معك"],
-        ["تفضل! أنا هنا لأي سوالف 💬"],
-    ),
-    (
-        ["نكت", "قول نكتة"],
-        ["مرة كابتن راح ياخذ عميل... نسيه وراح 😂"],
-    ),
-    (
-        ["شسمك", "اسمك"],
-        ["اسمي بوت المشاوير 😎"],
-    ),
-    (
-        ["طفشان", "ملل"],
-        ["طفشان؟ اطلب مشوار وتروق 🚘"],
-    ),
-    (
-        ["احبك", "حبيبي"],
-        ["حبيبي أنت 🌹"],
-    ),
-    (
-        ["حزين", "زعلان"],
-        ["لا تحزن، المشاوير تنسيك الهم 🚘"],
-    ),
-    (
-        ["كم السعر", "بكم"],
-        ["💰 السعر والتفاهم بالخاص 🤝"],
-    ),
-    (
-        ["بوت", "يا بوت"],
-        ["نعم! أنا هنا 🤖"],
-    ),
-    (
-        ["تسلم", "الله يسعدك"],
-        ["الله يسلمك 🌹"],
-    ),
+    (["كيفك", "كيف حالك"], ["بخير 🌹", "تمام 😊"]),
+    (["وش تسوي"], ["أنتظر مشوارك 😎🚘"]),
+    (["تحبني"], ["أحبك ❤️"]),
+    (["نكت", "قول نكتة"], ["مرة كابتن نسى العميل وراح 😂"]),
+    (["شسمك"], ["اسمي بوت المشاوير 😎"]),
+    (["طفشان", "ملل"], ["اطلب مشوار وتروق 🚘"]),
+    (["احبك", "حبيبي"], ["حبيبي أنت 🌹"]),
+    (["كم السعر"], ["💰 السعر بالتفاهم 🤝"]),
+    (["بوت", "يا بوت"], ["نعم أنا هنا 🤖"]),
 ]
 
 READY_MESSAGES = [
     "رافقتك السلامة يا كابتن 🚕🌹",
-    "الله يوفقك ويرزقك مشوار طيب 🤲🚘",
-    "تم تسجيل جاهزيتك 🚘🌹",
+    "الله يوفقك 🤲🚘",
 ]
 
 ENGAGEMENT_MESSAGES = [
-    "🌅 <b>صباح الخير!</b>\n\nمن عنده مشوار اليوم؟ 🚕",
+    "🌅 <b>صباح الخير!</b>\n\nمن عنده مشوار؟ 🚕",
     "🚕 <b>الكباتن!</b>\n\nأعلنوا مواقعكم 📍",
 ]
 
@@ -237,8 +144,7 @@ class Database:
                     user_id INTEGER PRIMARY KEY,
                     name TEXT,
                     username TEXT,
-                    role TEXT DEFAULT '',
-                    points INTEGER DEFAULT 0
+                    role TEXT DEFAULT ''
                 )
             """)
             
@@ -293,9 +199,6 @@ class Database:
     
     def is_driver(self, user_id):
         return self.get_role(user_id) == "driver"
-    
-    def is_customer(self, user_id):
-        return self.get_role(user_id) == "customer"
     
     def create_trip(self, message_id, customer_id, pickup, destination, trip_type="normal"):
         with self.connect() as con:
@@ -361,52 +264,31 @@ class SmartRidesBot:
         return None
     
     def looks_like_trip(self, text):
-        """🧠 فهم أي نوع طلب مشوار"""
-        normalized = self.normalize_text(text)
-        
         if self.detect_trip_type(text):
             return True
-        
         if re.search(r"من\s+.+?\s+(?:الى|إلى|الي)\s+.+", text, re.IGNORECASE):
             return True
-        
         trip_indicators = [
-            "مكان المنزل", "مكان الدوام", "لوكيشن", "وقت",
-            "السعر", "التزام", "مشوار", "توصيل",
-            "عدد الايام", "دوام", "مدرسه", "مدرسة",
+            "مكان المنزل", "مكان الدوام", "لوكيشن", "السعر",
+            "التزام", "مشوار", "توصيل", "عدد الايام", "دوام",
         ]
-        
+        normalized = self.normalize_text(text)
         for word in trip_indicators:
             if self.normalize_text(word) in normalized:
                 return True
-        
         return False
     
     def extract_route(self, text):
-        # النمط العادي
         match = re.search(r"من\s+(.+?)\s+(?:الى|إلى|الي|لل)\s+(.+)", text, re.IGNORECASE)
         if match:
             return match.group(1).strip(), match.group(2).strip()
         
-        # استخراج من رسالة طويلة
         home_match = re.search(r"مكان المنزل\s*[:：]\s*(.+)", text, re.IGNORECASE)
         work_match = re.search(r"مكان الدوام\s*[:：]\s*(.+)", text, re.IGNORECASE)
-        
         if home_match and work_match:
             return home_match.group(1).strip(), work_match.group(1).strip()
         
-        # لوكيشن
-        home_loc = re.search(r"لوكيشن المنزل\s*[:：]\s*(.+)", text, re.IGNORECASE)
-        work_loc = re.search(r"لوكيشن العمل\s*[:：]\s*(.+)", text, re.IGNORECASE)
-        
-        if home_loc and work_loc:
-            return home_loc.group(1).strip(), work_loc.group(1).strip()
-        
         return None, None
-    
-    def looks_like_location(self, text):
-        normalized = self.normalize_text(text)
-        return any(self.normalize_text(p) in normalized for p in LOCATION_PHRASES)
     
     def get_chat_response(self, text):
         normalized = self.normalize_text(text)
@@ -424,22 +306,6 @@ class SmartRidesBot:
                     return random.choice(responses)
         return None
     
-    def get_role_badge(self, user_id):
-        if self.db.is_driver(user_id):
-            return DRIVER_BADGE
-        if self.db.is_customer(user_id):
-            return CUSTOMER_BADGE
-        return ""
-    
-    def display_user(self, user):
-        if not user:
-            return "عضو"
-        name = self.html(user.full_name)
-        badge = self.get_role_badge(user.id)
-        if badge:
-            return f"<b>{self.html(badge)} {name}</b>"
-        return f"<b>{name}</b>"
-    
     async def welcome_new_member(self, update, context):
         message = update.message
         for member in message.new_chat_members:
@@ -451,14 +317,10 @@ class SmartRidesBot:
 
 نورت <b>{GROUP_NAME}</b> 🚘
 
-👤 <b>عميل:</b>
-اكتب طلبك مباشرة
+👤 <b>عميل:</b> اكتب طلبك مباشرة
+🚕 <b>كابتن:</b> اضغط زر «أنا جاهز» تحت الطلب
 
-🚕 <b>كابتن:</b>
-اضغط زر «أنا جاهز» تحت الطلب
-
-✍️ <b>للتسجيل:</b>
-اكتب «أنا كابتن» أو «أنا عميل»
+✍️ <b>للتسجيل:</b> اكتب «أنا كابتن» أو «أنا عميل»
             """
             keyboard = InlineKeyboardMarkup([
                 [
@@ -477,23 +339,25 @@ class SmartRidesBot:
         await query.answer()
         data = query.data
         user = query.from_user
+        
         if data.startswith("role_customer:"):
             role = "customer"
+            role_text = "✅ <b>تم تسجيلك كعميل!</b>"
         elif data.startswith("role_driver:"):
             role = "driver"
+            role_text = "✅ <b>تم تسجيلك ككابتن!</b>"
         else:
             return
+        
         target_id = int(data.split(":")[1])
+        
         if user.id != target_id:
             await query.answer("هذا الزر مخصص للعضو الجديد فقط!", show_alert=True)
             return
+        
         self.db.save_user(user)
         self.db.set_role(target_id, role)
-        if role == "customer":
-            confirm_text = "✅ <b>تم تسجيلك كعميل!</b>"
-        else:
-            confirm_text = "✅ <b>تم تسجيلك ككابتن!</b>"
-        await query.message.reply_text(confirm_text, parse_mode=ParseMode.HTML)
+        await query.message.reply_text(role_text, parse_mode=ParseMode.HTML)
     
     async def show_rules(self, update, context):
         query = update.callback_query
@@ -580,16 +444,11 @@ class SmartRidesBot:
             ],
         ])
         
-        await message.reply_text(
-            confirm_text,
-            parse_mode=ParseMode.HTML,
-            reply_markup=keyboard
-        )
+        await message.reply_text(confirm_text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
     
     async def handle_take_trip(self, update, context):
         """🚕 الكابتن يضغط زر أنا جاهز"""
         query = update.callback_query
-        
         driver = query.from_user
         data = query.data.split(":")
         trip_id = int(data[1])
@@ -682,7 +541,7 @@ class SmartRidesBot:
     
     async def cmd_start(self, update, context):
         await update.message.reply_text(
-            f"🚘 <b>أهلاً بك في {GROUP_NAME}</b>\n\n🤖 البوت يعمل ✅",
+            f"🚘 <b>{GROUP_NAME}</b>\n\n🤖 البوت يعمل ✅",
             parse_mode=ParseMode.HTML
         )
     
@@ -717,6 +576,7 @@ class SmartRidesBot:
         
         app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.welcome_new_member))
         
+        # ✅ كل الأزرار مسجلة
         app.add_handler(CallbackQueryHandler(self.role_selection, pattern="^role_"))
         app.add_handler(CallbackQueryHandler(self.show_rules, pattern="^rules$"))
         app.add_handler(CallbackQueryHandler(self.handle_take_trip, pattern="^take_trip:"))
