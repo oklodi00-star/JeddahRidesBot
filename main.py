@@ -21,19 +21,19 @@ from telegram.ext import (
 )
 
 # ============================================================
-# ⚙️ الإعدادات
+# ⚙️ الإعدادات - تم التعديل ✅
 # ============================================================
 
-TOKEN = "8881485708:AAGxUH3xKk7kKQ8rKkW6lMKxxtV72klS5O8"
+TOKEN = "7788245489:AAHR8HXZVVrL5UsQh61z7xZ-P1dZgP_JbJg"  # 🔑 التوكن الجديد
 
-GROUP_ID = -1001234567890  # ⚠️ ضع ايدي القروب هنا
+GROUP_ID = -1001234567890  # ⚠️ ضع ايدي القروب الصحيح هنا
 GROUP_NAME = "🚘 مشاوير جدة وضواحيها"
 GROUP_LINK = "https://t.me/JeddahRides"
 
-OWNER_ID = 952638746
+OWNER_ID = 952638746  # 👤 ايديك
 ADMIN_USERNAME = "klodi500"
 ADMIN_USERNAMES = ["klodi500"]
-ADMIN_IDS = [952638746]  # ⚠️ أضف ايديك هنا
+ADMIN_IDS = [952638746]  # ✅ أضف ايديك هنا
 
 SAUDI_TZ = ZoneInfo("Asia/Riyadh")
 
