@@ -33,7 +33,7 @@ GROUP_LINK = "https://t.me/JeddahRides"
 OWNER_ID = 952638746
 ADMIN_USERNAME = "klodi500"
 ADMIN_USERNAMES = ["klodi500"]
-ADMIN_IDS = [952638746]
+ADMIN_IDS = [952638746]  # ⚠️ أضف ايديك هنا
 
 SAUDI_TZ = ZoneInfo("Asia/Riyadh")
 
@@ -76,11 +76,6 @@ NORMAL_TRIP_WORDS = [
     "مشوار", "توصيل", "توصيلة", "يوصلني", "يوديني",
     "ابغى مشوار", "ابي مشوار", "احتاج توصيل",
     "من يوصلني", "فيه كابتن", "اوصلني", "ودني",
-]
-
-LOCATION_WORDS = [
-    "متواجد", "موجود", "متوفر", "انا في", "موقعي",
-    "مكاني", "انا عند", "انا حول", "قريب من",
 ]
 
 GREETINGS = [
@@ -256,35 +251,19 @@ class SmartRidesBot:
             return "normal"
         return None
     
-    def looks_like_location(self, text):
-        """📍 فحص إذا الرسالة إعلان موقع كابتن"""
-        normalized = self.normalize_text(text)
-        for word in LOCATION_WORDS:
-            if self.normalize_text(word) in normalized:
-                return True
-        return False
-    
     def looks_like_trip(self, text):
-        # ✅ إذا الرسالة إعلان موقع، لا تعتبر مشوار
-        if self.looks_like_location(text):
-            return False
-        
         if self.detect_trip_type(text):
             return True
-        
         if re.search(r"من\s+.+?\s+(?:الى|إلى|الي)\s+.+", text, re.IGNORECASE):
             return True
-        
         trip_indicators = [
             "مكان المنزل", "مكان الدوام", "لوكيشن", "السعر",
             "التزام", "مشوار", "توصيل", "عدد الايام", "دوام",
         ]
-        
         normalized = self.normalize_text(text)
         for word in trip_indicators:
             if self.normalize_text(word) in normalized:
                 return True
-        
         return False
     
     def extract_route(self, text):
@@ -360,6 +339,7 @@ class SmartRidesBot:
         
         target_id = int(data.split(":")[1])
         
+        # ✅ السماح للأدمن بالتصنيف
         is_admin = False
         try:
             member = await context.bot.get_chat_member(GROUP_ID, user.id)
@@ -406,15 +386,6 @@ class SmartRidesBot:
             await message.reply_text("✅ <b>تم تسجيلك كعميل!</b>", parse_mode=ParseMode.HTML)
             return
         
-        # ✅ أولاً: فحص إعلان الموقع
-        if self.looks_like_location(text):
-            if not self.db.is_driver(user.id):
-                self.db.save_user(user)
-                self.db.set_role(user.id, "driver")
-            await self.handle_location(update, context, text)
-            return
-        
-        # ثانياً: فحص طلب المشوار
         if self.looks_like_trip(text):
             await self.handle_trip_request(update, context, text)
             return
@@ -428,24 +399,6 @@ class SmartRidesBot:
         if greeting:
             await message.reply_text(greeting)
             return
-    
-    async def handle_location(self, update, context, text):
-        """📍 معالجة إعلان موقع الكابتن"""
-        message = update.message
-        driver = update.effective_user
-        
-        self.db.save_user(driver)
-        
-        if not self.db.is_driver(driver.id):
-            self.db.set_role(driver.id, "driver")
-        
-        await message.reply_text(
-            f"📍 <b>تم تسجيل تواجد الكابتن</b>\n\n"
-            f"👨‍✈️ <b>الكابتن:</b> {self.html(driver.full_name)}\n\n"
-            f"📌 <b>الموقع:</b> {self.html(text)}\n\n"
-            f"🚕 الله يرزقك مشوار طيب",
-            parse_mode=ParseMode.HTML
-        )
     
     async def handle_trip_request(self, update, context, text):
         message = update.message
@@ -592,8 +545,7 @@ class SmartRidesBot:
     async def cmd_help(self, update, context):
         await update.message.reply_text(
             "👤 <b>عميل:</b> اكتب طلبك\n"
-            "🚕 <b>كابتن:</b> اضغط زر «أنا جاهز»\n"
-            "📍 <b>موقع:</b> اكتب «متواجد في [المنطقة]»",
+            "🚕 <b>كابتن:</b> اضغط زر «أنا جاهز»",
             parse_mode=ParseMode.HTML
         )
     
