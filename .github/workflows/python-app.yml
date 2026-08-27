@@ -1,33 +1,30 @@
-name: Telegram Bot Runner
+name: Telegram Bot
 
 on:
-  workflow_dispatch:  # تشغيل يدوي
-  schedule:
-    - cron: '0 * * * *'  # كل ساعة (يمكنك تغيير التوقيت)
+  workflow_dispatch:
   push:
     branches: [ main ]
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 10  # الحد الأقصى 10 دقائق لكل تشغيل (عدّلها حسب الحاجة)
+    timeout-minutes: 5
 
     steps:
-    - name: Checkout repository
+    - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install python-telegram-bot==21.6
 
-    - name: Run Telegram Bot
+    - name: Run bot
       env:
-        BOT_TOKEN: ${{ secrets.BOT_TOKEN }}  # أضف التوكن في إعدادات المستودع كـ Secret
+        BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
       run: |
         python bot.py
