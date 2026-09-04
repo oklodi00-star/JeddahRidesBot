@@ -5,6 +5,7 @@
 import os
 import re
 import logging
+import random
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import Optional, Tuple, List, Dict
@@ -89,6 +90,17 @@ LOCATIONS = [
     "السلامة", "الشاطئ", "الابحر", "أبحر", "النور", "التوفيق",
     "العدل", "المنار", "الواحة", "الفيصلية", "الريان", "الوادي",
     "الفلاح", "النهضة", "الرابية", "الخزامى", "الياسمين", "الندى"
+]
+
+# عبارات السلام والمجاملات
+GREETINGS = [
+    "السلام عليكم", "سلام عليكم", "السلام", "سلام",
+    "صباح الخير", "صباح النور", "مساء الخير", "مساء النور",
+    "هلا", "اهلا", "أهلا", "مرحبا", "هاي", "هلو",
+    "ياهلا", "يا هلا", "مراحب", "تحية طيبة", "تحياتي",
+    "كيف الحال", "كيفك", "كيفكم", "شخبارك", "شخباركم",
+    "شكرا", "شكراً", "يعطيك العافية", "تسلم", "بارك الله فيك",
+    "جزاك الله خير", "مشكور", "مشكورة"
 ]
 
 # ============================================================
@@ -316,8 +328,16 @@ class SmartRidesBot:
             return ""
         return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
+    def is_greeting(self, text):
+        norm = self.normalize_text(text).strip()
+        return any(greet in norm for greet in GREETINGS)
+
     def classify_intent(self, text, user_role, previous_messages=None):
         norm = self.normalize_text(text).strip()
+
+        # التحقق من التحية أولاً
+        if self.is_greeting(text):
+            return "greeting"
 
         if norm in ["انا كابتن", "انا سايق", "انا سواق", "كابتن", "سايق", "سواق", "انا سائق"]:
             return "register_driver"
@@ -514,6 +534,17 @@ class SmartRidesBot:
         previous = self.db.get_memory(user.id, limit=3)
         intent = self.classify_intent(text, role, previous)
 
+        if intent == "greeting":
+            greetings_responses = [
+                "وعليكم السلام ورحمة الله وبركاته! 😊",
+                "أهلاً وسهلاً! كيف أقدر أساعدك اليوم؟",
+                "مرحباً! أنا بوت المشاوير، تفضل بطلبك.",
+                "هلا والله! 🙋‍♂️",
+                "وعليكم السلام! أتمنى لك يوم سعيد."
+            ]
+            await message.reply_text(random.choice(greetings_responses), parse_mode=ParseMode.HTML)
+            return
+
         if intent == "register_driver":
             if role == "driver":
                 await message.reply_text("أنت مسجل ككابتن بالفعل ✅\nأرسل موقعك الحالي مباشرة.")
@@ -660,6 +691,8 @@ class SmartRidesBot:
 📝 <b>التفاصيل:</b>
 {self.html(original_text)}
 {extra}
+
+⚠️ <b>تنبيه هام:</b> لا تتعامل مع الكباتن الذين لم يسجلوا جاهزين، حفاظاً على سلامتك.
 
 🚕 <b>للكباتن:</b> اضغط الزر أدناه إذا كنت جاهزاً 👇
 """
