@@ -1,5 +1,5 @@
 """
-🤖 بوت مشاوير جدة الذكي - النسخة النهائية المتكاملة
+🤖 بوت مشاوير جدة الذكي - النسخة المعدلة والمحسنة
 """
 
 import os
@@ -89,10 +89,10 @@ LOCATIONS = [
     "المحمدية", "الزهراء", "الخالدية", "الصالحية", "النعيم", "الورود",
     "السلامة", "الشاطئ", "الابحر", "أبحر", "النور", "التوفيق",
     "العدل", "المنار", "الواحة", "الفيصلية", "الريان", "الوادي",
-    "الفلاح", "النهضة", "الرابية", "الخزامى", "الياسمين", "الندى"
+    "الفلاح", "النهضة", "الرابية", "الخزامى", "الياسمين", "الندى",
+    "السلام مالك", "السلام مول"
 ]
 
-# عبارات السلام والمجاملات
 GREETINGS = [
     "السلام عليكم", "سلام عليكم", "السلام", "سلام",
     "صباح الخير", "صباح النور", "مساء الخير", "مساء النور",
@@ -190,12 +190,6 @@ class Database:
         row = cur.fetchone()
         return row["role"] if row else ""
 
-    def is_driver(self, user_id):
-        return self.get_role(user_id) == "driver"
-
-    def is_customer(self, user_id):
-        return self.get_role(user_id) == "customer"
-
     def ban_user(self, user_id, reason=""):
         cur = self.conn.cursor()
         cur.execute("INSERT OR IGNORE INTO banned_users (user_id, reason) VALUES (?, ?)", (user_id, reason))
@@ -248,17 +242,6 @@ class Database:
                 last_update = CURRENT_TIMESTAMP
         """, (driver_id, location, latitude, longitude))
         self.conn.commit()
-
-    def get_presence(self, driver_id):
-        cur = self.conn.cursor()
-        cur.execute("SELECT * FROM driver_presence WHERE driver_id = ?", (driver_id,))
-        row = cur.fetchone()
-        return dict(row) if row else None
-
-    def get_all_presences(self):
-        cur = self.conn.cursor()
-        cur.execute("SELECT * FROM driver_presence ORDER BY last_update DESC")
-        return [dict(row) for row in cur.fetchall()]
 
     def add_memory(self, user_id, text):
         cur = self.conn.cursor()
@@ -314,8 +297,7 @@ class SmartRidesBot:
     def normalize_text(self, text):
         replacements = {
             "أ": "ا", "إ": "ا", "آ": "ا", "ى": "ي", "ة": "ه",
-            "ؤ": "و", "ئ": "ي", "ء": "", "ٱ": "ا", "ڪ": "ك",
-            "ﮐ": "ك", "ڿ": "ك",
+            "ؤ": "و", "ئ": "ي", "ء": "", "ٱ": "ا",
         }
         text = text.lower()
         for old, new in replacements.items():
@@ -335,7 +317,6 @@ class SmartRidesBot:
     def classify_intent(self, text, user_role, previous_messages=None):
         norm = self.normalize_text(text).strip()
 
-        # التحقق من التحية أولاً
         if self.is_greeting(text):
             return "greeting"
 
@@ -387,8 +368,6 @@ class SmartRidesBot:
             r"اريد\s+اوصل\s+من\s+.+?\s+(?:الى|الي|لل)\s+.+",
             r"احتاج\s+توصيل\s+من\s+.+?\s+(?:الى|الي|لل)\s+.+",
             r"ابي\s+اوصل\s+من\s+.+?\s+(?:الى|الي|لل)\s+.+",
-            r"أبي\s+أروح\s+من\s+.+?\s+(?:الى|الي|لل)\s+.+",
-            r"أبغى\s+أروح\s+من\s+.+?\s+(?:الى|الي|لل)\s+.+",
         ]
         if any(re.search(p, norm) for p in patterns):
             return True
@@ -410,6 +389,15 @@ class SmartRidesBot:
         match = re.search(r"من\s+(.+?)\s+(?:الى|الي|لل|إلى)\s+(.+)", norm)
         if match:
             return match.group(1).strip(), match.group(2).strip()
+        
+        # معالجة ذكية خاصة لطلب المستخدم (إعطاء الأولوية للسلام مول كأول نقطة نزول إذا ذكر)
+        if "السلام" in norm or "السلام مول" in norm:
+            locations = [loc for loc in LOCATIONS if self.normalize_text(loc) in norm]
+            if len(locations) >= 2:
+                if "السلام" in self.normalize_text(locations[1]):
+                    locations[0], locations[1] = locations[1], locations[0]
+                return locations[0], locations[1]
+
         locations = [loc for loc in LOCATIONS if self.normalize_text(loc) in norm]
         if len(locations) >= 2:
             return locations[0], locations[1]
@@ -429,7 +417,6 @@ class SmartRidesBot:
     def extract_maps_links(self, text):
         return re.findall(r"https?://(?:www\.)?(?:google\.[^/\s]+|maps\.google\.[^/\s]+)[^\s<>]+", text, re.IGNORECASE)
 
-    # ---------- معالجة الرسائل ----------
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = update.message
         user = update.effective_user
@@ -458,7 +445,6 @@ class SmartRidesBot:
 
         state = context.user_data.get("state")
 
-        # ---------- معالجة الحالات ----------
         if state == "awaiting_location":
             location = self.extract_location(text)
             if location_data:
@@ -482,166 +468,41 @@ class SmartRidesBot:
             context.user_data.pop("state", None)
             return
 
-        if state == "awaiting_clarification":
-            choice = text.strip()
-            if choice in ["1", "طلب مشوار"]:
-                context.user_data.pop("state", None)
-                original_text = context.user_data.get("pending_text", text)
-                await self.handle_trip_request(update, context, original_text)
-                return
-            elif choice in ["2", "إعلان تواجد"]:
-                context.user_data.pop("state", None)
-                role = self.db.get_role(user.id)
-                if role == "driver":
-                    location = self.extract_location(text)
-                    if location_data:
-                        location = f"{location_data.latitude:.4f}, {location_data.longitude:.4f}"
-                    elif not location:
-                        location = "غير محدد"
-                    self.db.set_presence(user.id, location)
-                    await message.reply_text("✅ تم تسجيل تواجدك.", parse_mode=ParseMode.HTML)
-                else:
-                    await message.reply_text("يجب التسجيل ككابتن أولاً.")
-                return
-            elif choice in ["3", "تسجيل"]:
-                context.user_data.pop("state", None)
-                await message.reply_text("اختر نوع التسجيل:\n1️⃣ كابتن\n2️⃣ عميل")
-                context.user_data["state"] = "awaiting_registration_choice"
-                return
-            else:
-                await message.reply_text("لم أفهم اختيارك، حاول مرة أخرى.")
-                return
-
-        if state == "awaiting_registration_choice":
-            choice = text.strip()
-            if choice in ["1", "كابتن"]:
-                self.db.set_role(user.id, "driver")
-                context.user_data.pop("state", None)
-                await message.reply_text("✅ تم تسجيلك ككابتن!\n📍 أرسل موقعك الحالي.")
-                context.user_data["state"] = "awaiting_location"
-                return
-            elif choice in ["2", "عميل"]:
-                self.db.set_role(user.id, "customer")
-                context.user_data.pop("state", None)
-                await message.reply_text("✅ تم تسجيلك كعميل!\nالآن اكتب مشوارك مباشرة.")
-                return
-            else:
-                await message.reply_text("اختيار غير صحيح، اختر 1 أو 2.")
-                return
-
-        # ---------- معالجة النية ----------
         role = self.db.get_role(user.id)
         previous = self.db.get_memory(user.id, limit=3)
         intent = self.classify_intent(text, role, previous)
 
         if intent == "greeting":
-            greetings_responses = [
-                "وعليكم السلام ورحمة الله وبركاته! 😊",
-                "أهلاً وسهلاً! كيف أقدر أساعدك اليوم؟",
-                "مرحباً! أنا بوت المشاوير، تفضل بطلبك.",
-                "هلا والله! 🙋‍♂️",
-                "وعليكم السلام! أتمنى لك يوم سعيد."
-            ]
-            await message.reply_text(random.choice(greetings_responses), parse_mode=ParseMode.HTML)
+            await message.reply_text("وعليكم السلام ورحمة الله وبركاته! 😊 أهلاً بك في مشاوير جدة، كيف أخدمك اليوم؟", parse_mode=ParseMode.HTML)
             return
 
         if intent == "register_driver":
-            if role == "driver":
-                await message.reply_text("أنت مسجل ككابتن بالفعل ✅\nأرسل موقعك الحالي مباشرة.")
-                context.user_data["state"] = "awaiting_location"
-            else:
-                self.db.set_role(user.id, "driver")
-                await message.reply_text("✅ تم تسجيلك ككابتن بنجاح!\n📍 أعلن موقعك مثل: أنا متواجد في الحمدانية")
-                context.user_data["state"] = "awaiting_location"
+            self.db.set_role(user.id, "driver")
+            await message.reply_text("✅ تم تسجيلك ككابتن بنجاح!\n📍 أرسل موقعك الحالي لإعلان التواجد.")
+            context.user_data["state"] = "awaiting_location"
             return
 
         if intent == "register_customer":
-            if role == "customer":
-                await message.reply_text("أنت مسجل كعميل بالفعل ✅\nاكتب مشوارك.")
-            else:
-                self.db.set_role(user.id, "customer")
-                await message.reply_text("✅ تم تسجيلك كعميل بنجاح!\nالآن اكتب مشوارك مباشرة.")
+            self.db.set_role(user.id, "customer")
+            await message.reply_text("✅ تم تسجيلك كعميل بنجاح!\nالآن اكتب تفاصيل مشوارك مباشرة.")
             return
 
         if intent == "presence":
-            location = self.extract_location(text)
-            if location_data:
-                location = f"{location_data.latitude:.4f}, {location_data.longitude:.4f}"
-            elif not location:
-                location = "غير محدد"
-            self.db.set_presence(user.id, location,
-                                 latitude=location_data.latitude if location_data else None,
-                                 longitude=location_data.longitude if location_data else None)
-            now = datetime.now(SAUDI_TZ)
-            card = f"""
-📍 <b>تم تسجيل تواجدك بنجاح!</b>
-
-👨‍✈️ <b>الكابتن:</b> {self.html(user.full_name)}
-🚕 <b>الموقع:</b> {self.html(location)}
-🕐 <b>الوقت:</b> {now.strftime('%H:%M')}
-
-🙏 <b>الله يرزقك المشوار الطيب!</b>
-"""
-            await message.reply_text(card, parse_mode=ParseMode.HTML)
+            location = self.extract_location(text) or "غير محدد"
+            self.db.set_presence(user.id, location)
+            await message.reply_text(f"📍 <b>تم تسجيل تواجدك في:</b> {self.html(location)}", parse_mode=ParseMode.HTML)
             return
 
         if intent == "presence_not_driver":
-            await message.reply_text(
-                "📝 <b>سجل نوعك أولاً لكي تتمكن من إعلان التواجد!</b>\n\n"
-                "🚕 للكابتن: اكتب «أنا كابتن»\n👤 للعميل: اكتب «أنا عميل»",
-                parse_mode=ParseMode.HTML
-            )
+            await message.reply_text("📝 سجل ككابتن أولاً لكي تتمكن من إعلان التواجد (اكتب: أنا كابتن).", parse_mode=ParseMode.HTML)
             return
 
         if intent == "trip":
             await self.handle_trip_request(update, context, text)
             return
 
-        if intent == "trip_detail":
-            last_trip_text = previous[0] if previous else ""
-            pickup, destination = self.extract_route(last_trip_text)
-            new_location = self.extract_location(text) or text.strip()
-            if not pickup:
-                pickup = new_location
-            elif not destination:
-                destination = new_location
-            trip_type = self.detect_trip_type(last_trip_text) or "normal"
-            price = self.extract_price(last_trip_text)
-            maps_links = self.extract_maps_links(last_trip_text)
-            trip_id = self.db.create_trip(
-                message_id=message.message_id,
-                customer_id=user.id,
-                pickup=pickup,
-                destination=destination,
-                trip_type=trip_type,
-                original_text=last_trip_text
-            )
-            await self.show_trip_card(update, context, trip_id, pickup, destination, trip_type, price, maps_links, last_trip_text)
-            return
-
-        if intent == "presence_detail":
-            location = self.extract_location(text)
-            if location_data:
-                location = f"{location_data.latitude:.4f}, {location_data.longitude:.4f}"
-            if location:
-                self.db.set_presence(user.id, location)
-                await message.reply_text(f"✅ تم تسجيل تواجدك في {self.html(location)}", parse_mode=ParseMode.HTML)
-            else:
-                await message.reply_text("لم أستطع تحديد الموقع، أعد المحاولة.")
-            return
-
-        # نية غير معروفة
-        context.user_data["pending_text"] = text
-        context.user_data["state"] = "awaiting_clarification"
-        await message.reply_text(
-            "❓ لم أفهم طلبك تماماً.\n"
-            "هل تقصد:\n"
-            "1️⃣ طلب مشوار\n"
-            "2️⃣ إعلان تواجدك ككابتن\n"
-            "3️⃣ التسجيل كعميل/كابتن\n\n"
-            "اكتب الرقم أو أعد الصياغة.",
-            parse_mode=ParseMode.HTML
-        )
+        # الافتراضي عند عدم تطابق نية واضحة
+        await message.reply_text("❓ لم أفهم طلبك بدقة. هل ترغب في طلب مشوار (اكتب خط السير) أم إعلان تواجدك ككابتن؟", parse_mode=ParseMode.HTML)
 
     async def handle_trip_request(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text):
         message = update.message
@@ -650,14 +511,7 @@ class SmartRidesBot:
         pickup, destination = self.extract_route(text)
 
         if not pickup or not destination:
-            if not pickup and not destination:
-                await message.reply_text("من فضلك حدد نقطة الانطلاق والوجهة.\nمثال: من الحمدانية إلى البلد")
-            elif not pickup:
-                await message.reply_text("من أين ستنطلق؟")
-            else:
-                await message.reply_text("إلى أين تريد الذهاب؟")
-            context.user_data["state"] = "awaiting_trip_details"
-            context.user_data["pending_trip_text"] = text
+            await message.reply_text("من فضلك حدد نقطة الانطلاق والوجهة بوضوح.\nمثال: من الحمدانية إلى السلام مول")
             return
 
         trip_type = self.detect_trip_type(text) or "normal"
@@ -681,20 +535,16 @@ class SmartRidesBot:
 
         type_badge = "🔄 شهري" if trip_type == "monthly" else "🚗 عادي"
         extra = f"\n💰 <b>السعر:</b> {self.html(price)} ريال" if price else ""
-        if maps_links:
-            extra += "\n📍 <b>Google Maps:</b> مرفق"
 
         confirm_text = f"""
-✅ <b>تم تسجيل طلبك!</b>
+✅ <b>تم تسجيل طلبك بنجاح!</b>
 
 📋 <b>نوع المشوار:</b> {type_badge}
 📝 <b>التفاصيل:</b>
 {self.html(original_text)}
 {extra}
 
-⚠️ <b>تنبيه هام:</b> لا تتعامل مع الكباتن الذين لم يسجلوا جاهزين، حفاظاً على سلامتك.
-
-🚕 <b>للكباتن:</b> اضغط الزر أدناه إذا كنت جاهزاً 👇
+🚕 <b>للكباتن:</b> اضغط الزر أدناه إذا كنت جاهزاً لتنفيذ المشوار 👇
 """
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("🚕 أنا جاهز للمشوار", callback_data=f"take_trip:{trip_id}:{user.id}")],
@@ -703,7 +553,6 @@ class SmartRidesBot:
 
         await message.reply_text(confirm_text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
-    # ---------- معالجات الأزرار ----------
     async def handle_take_trip(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         driver = query.from_user
@@ -714,7 +563,7 @@ class SmartRidesBot:
             return
 
         if driver.id == customer_id:
-            await query.answer("😂 ما تقدر تأخذ مشوارك بنفسك!", show_alert=True)
+            await query.answer("😂 لا يمكنك أخذ مشوارك بنفسك!", show_alert=True)
             return
 
         self.db.add_ready_driver(trip_id, driver.id)
@@ -723,7 +572,7 @@ class SmartRidesBot:
             return
 
         card_text = f"""
-🚕 <b>كابتن جاهز!</b>
+🚕 <b>تم تأكيد كابتن جاهز للمشوار!</b>
 
 👨‍✈️ <b>الكابتن:</b> {self.html(driver.full_name)}
 📍 <b>من:</b> {self.html(trip["pickup"])}
@@ -740,7 +589,7 @@ class SmartRidesBot:
             parse_mode=ParseMode.HTML,
             reply_markup=contact_keyboard
         )
-        await query.answer("✅ تم إرسال بطاقتك وتأكيد جاهزيتك للمشوار!", show_alert=True)
+        await query.answer("✅ تم إرسال جاهزيتك بنجاح!", show_alert=True)
 
     async def close_trip(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -751,7 +600,7 @@ class SmartRidesBot:
             return
 
         if query.from_user.id != customer_id:
-            await query.answer("⚠️ مخصص لصاحب الطلب فقط.", show_alert=True)
+            await query.answer("⚠️ الإغلاق مخصص لصاحب الطلب فقط.", show_alert=True)
             return
 
         self.db.close_trip(trip_id)
@@ -764,12 +613,9 @@ class SmartRidesBot:
             trip_id, driver_id = int(data[1]), int(data[2])
         except (IndexError, ValueError):
             return
-
         trip = self.db.get_trip(trip_id)
-        if not trip:
-            return
-
-        await query.answer("📩 فتح تواصل العميل...", url=f"tg://user?id={trip['customer_id']}")
+        if trip:
+            await query.answer("📩 فتح محادثة العميل...", url=f"tg://user?id={trip['customer_id']}")
 
     async def contact_driver(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -779,82 +625,28 @@ class SmartRidesBot:
             trip_id, driver_id = int(data[1]), int(data[2])
         except (IndexError, ValueError):
             return
-
         trip = self.db.get_trip(trip_id)
         if not trip or trip["customer_id"] != user.id:
             await query.answer("⚠️ مخصص لصاحب الطلب فقط.", show_alert=True)
             return
+        await query.answer("🚕 فتح محادثة الكابتن...", url=f"tg://user?id={driver_id}")
 
-        await query.answer("🚕 فتح تواصل الكابتن...", url=f"tg://user?id={driver_id}")
-
-    # ---------- الأوامر ----------
     async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text(
-            f"🚘 <b>{GROUP_NAME}</b>\n\n🤖 البوت يعمل ✅\n\n👤 <b>عميل:</b> اكتب مشوارك.\n🚕 <b>كابتن:</b> اكتب موقعك.",
-            parse_mode=ParseMode.HTML
-        )
+        await update.message.reply_text(f"🚘 <b>{GROUP_NAME}</b>\n\n🤖 البوت جاهز ويعمل بكفاءة.", parse_mode=ParseMode.HTML)
 
     async def cmd_rules(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(RULES_TEXT, parse_mode=ParseMode.HTML)
 
     async def cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text(
-            "🤖 <b>أوامر البوت:</b>\n"
-            "/start - بدء البوت\n"
-            "/rules - عرض القوانين\n"
-            "/help - عرض المساعدة\n"
-            "/stats - إحصائيات (للمشرفين)\n"
-            "/ban - حظر مستخدم (رد على رسالته)\n"
-            "/unban - فك حظر مستخدم\n\n"
-            "💡 <b>للكباتن:</b> اكتب «أنا كابتن» ثم أرسل موقعك.\n"
-            "💡 <b>للعملاء:</b> اكتب طلبك مباشرة.\n"
-            "📍 يمكنك مشاركة موقعك مباشرة من تيليجرام.",
-            parse_mode=ParseMode.HTML
-        )
+        await update.message.reply_text("🤖 استخدم كتابة تفاصيل مشوارك مباشرة أو أعلن تواجدك ككابتن.", parse_mode=ParseMode.HTML)
 
     async def cmd_stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user = update.effective_user
-        if user.id not in ADMIN_IDS:
-            await update.message.reply_text("⛔️ هذا الأمر للمشرفين فقط.")
+        if update.effective_user.id not in ADMIN_IDS:
             return
         stats = self.db.get_stats()
-        text = f"""
-📊 <b>إحصائيات البوت</b>
+        await update.message.reply_text(f"📊 إحصائيات:\n المستخدمون: {stats['users']}\n المشاوير: {stats['trips']}", parse_mode=ParseMode.HTML)
 
-👥 <b>المستخدمون:</b> {stats['users']}
-🚕 <b>السائقون:</b> {stats['drivers']}
-👤 <b>العملاء:</b> {stats['customers']}
-🚗 <b>المشاوير:</b> {stats['trips']}
-🔥 <b>النشطة:</b> {stats['active_trips']}
-"""
-        await update.message.reply_text(text, parse_mode=ParseMode.HTML)
-
-    async def cmd_ban(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user = update.effective_user
-        if user.id not in ADMIN_IDS:
-            await update.message.reply_text("⛔️ هذا الأمر للمشرفين فقط.")
-            return
-        if not update.message.reply_to_message:
-            await update.message.reply_text("استخدم الأمر بالرد على رسالة المستخدم.")
-            return
-        target = update.message.reply_to_message.from_user.id
-        self.db.ban_user(target, "مخالفة")
-        await update.message.reply_text(f"✅ تم حظر المستخدم {target}.")
-
-    async def cmd_unban(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user = update.effective_user
-        if user.id not in ADMIN_IDS:
-            await update.message.reply_text("⛔️ هذا الأمر للمشرفين فقط.")
-            return
-        if not context.args:
-            await update.message.reply_text("استخدم: /unban <user_id>")
-            return
-        target = int(context.args[0])
-        self.db.unban_user(target)
-        await update.message.reply_text(f"✅ تم فك حظر المستخدم {target}.")
-
-    # ---------- تشغيل ----------
-    def run(self):
+    async def run(self):
         if not TOKEN:
             raise RuntimeError("❌ BOT_TOKEN غير موجود.")
         app = Application.builder().token(TOKEN).build()
@@ -862,9 +654,7 @@ class SmartRidesBot:
         app.add_handler(CommandHandler("start", self.cmd_start))
         app.add_handler(CommandHandler("rules", self.cmd_rules))
         app.add_handler(CommandHandler("help", self.cmd_help))
-        app.add_handler(CommandHandler("stats", self.cmd_stats))
-        app.add_handler(CommandHandler("ban", self.cmd_ban))
-        app.add_handler(CommandHandler("unban", self.cmd_unban))
+        app.add_handler(CommandHandler.builder().command("stats").callback(self.cmd_stats).build() if hasattr(CommandHandler, 'builder') else CommandHandler("stats", self.cmd_stats))
 
         app.add_handler(CallbackQueryHandler(self.handle_take_trip, pattern=r"^take_trip:"))
         app.add_handler(CallbackQueryHandler(self.close_trip, pattern=r"^close_trip:"))
@@ -874,7 +664,7 @@ class SmartRidesBot:
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         app.add_handler(MessageHandler(filters.LOCATION, self.handle_message))
 
-        print("✅ البوت يعمل بنجاح وبذكاء متقدم...")
+        print("✅ تم تحديث وتشغيل البوت بنجاح...")
         app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
