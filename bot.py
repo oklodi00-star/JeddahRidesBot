@@ -1,5 +1,5 @@
 """
-🤖 بوت مشاوير جدة الذكي - النسخة المعدلة لضمان معالجة الطلبات المسبوقة بالسلام
+🤖 بوت مشاوير جدة الذكي - النسخة الكاملة والمحدثة
 """
 
 import os
@@ -66,7 +66,7 @@ LOCATIONS = [
     "السنابل", "المحمدية", "الزهراء", "الخالدية", "الصالحية", "النعيم",
     "الورود", "السلامة", "الشاطئ", "ابحر", "أبحر", "التوفيق",
     "العدل", "المنار", "الواحة", "الفيصلية", "الريان", "الوادي",
-    "الفلاح", "النهضة", "الرابية", "الخزامى", "السلام مول", "السلام"
+    "الفلاح", "النهضة", "الرابية", "الخزامى", "السلام مول", "السلام", "مجمع الشرق"
 ]
 
 GREETINGS = [
@@ -275,7 +275,6 @@ class SmartRidesBot:
         role = self.db.get_role(user.id)
         norm = self.normalize_text(text).strip()
 
-        # فحص ما إذا كانت الرسالة طلب مشوار أولاً وبأولوية مطلقة
         if self.looks_like_trip(text):
             await self.handle_trip(update, context, text)
             return
@@ -353,16 +352,20 @@ class SmartRidesBot:
         if not trip:
             return
 
+        customer_chat_url = f"tg://user?id={trip['customer_id']}"
+        driver_chat_url = f"tg://user?id={driver.id}"
+
         card_text = f"""
-🚕 <b>تم تأكيد كابتن جاهز للمشوار!</b>
+⚡️ <b>ZOOM</b> ⚡️
+تم تأكيد كابتن جاهز للمشوار!
 
 👨‍✈️ <b>الكابتن:</b> {self.html(driver.full_name)}
 📍 <b>من:</b> {self.html(trip["pickup"])}
 🎯 <b>إلى:</b> {self.html(trip["destination"])}
 """
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📩 تواصل مع العميل", url=f"tg://user?id={trip['customer_id']}")],
-            [InlineKeyboardButton("🚕 تواصل مع الكابتن", url=f"tg://user?id={driver.id}")]
+            [InlineKeyboardButton("📩 تواصل مع العميل", url=customer_chat_url)],
+            [InlineKeyboardButton("🚕 تواصل مع الكابتن", url=driver_chat_url)]
         ])
 
         await context.bot.send_message(
