@@ -1,5 +1,5 @@
 """
-🤖 بوت مشاوير جدة الذكي - النسخة الكاملة والمحدثة لمعالجة الرسائل المركبة (سلام + طلب)
+🤖 بوت مشاوير جدة الذكي - النسخة المعدلة لضمان معالجة الطلبات المسبوقة بالسلام
 """
 
 import os
@@ -275,7 +275,7 @@ class SmartRidesBot:
         role = self.db.get_role(user.id)
         norm = self.normalize_text(text).strip()
 
-        # الأولوية القصوى لمعالجة طلبات المشاوير (حتى لو بدأت بتحية)
+        # فحص ما إذا كانت الرسالة طلب مشوار أولاً وبأولوية مطلقة
         if self.looks_like_trip(text):
             await self.handle_trip(update, context, text)
             return
