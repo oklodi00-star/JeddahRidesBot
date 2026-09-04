@@ -1,5 +1,5 @@
 """
-🤖 بوت مشاوير جدة الذكي - النسخة المطورة والمحدثة (بدون تكرار ومع إرسال البطاقة فوراً)
+🤖 بوت مشاوير جدة الذكي - النسخة النهائية المطورة والمضبوطة تماماً
 """
 
 import os
@@ -42,8 +42,6 @@ ADMIN_IDS = [952638746]
 SAUDI_TZ = ZoneInfo("Asia/Riyadh")
 DB_FILE = "smart_rides.db"
 
-ENGAGEMENT_INTERVAL = 45 * 60
-
 # ============================================================
 # 📋 القوانين
 # ============================================================
@@ -62,15 +60,13 @@ RULES_TEXT = f"""
 """
 
 # ============================================================
-# 🧠 كلمات المشاوير
+# 🧠 كلمات المشاوير والتواجد
 # ============================================================
 
 MONTHLY_TRIP_WORDS = [
     "شهري", "بالشهر", "كل يوم", "يوميا", "يومياً", "دوام", "مدرسة",
-    "جامعة", "مشوار يومي", "توصيل يومي", "التزام", "مكان المنزل",
-    "مكان الدوام", "عدد الايام", "عدد ايام الدوام", "اسبوعي", "أسبوعي",
+    "جامعة", "مشوار يومي", "توصيل يومي", "التزام", "اسبوعي", "أسبوعي",
     "شهر", "شهرين", "راتب", "مداوم", "كل اسبوع", "كل أسبوع",
-    "monthly", "month", "daily", "every day", "everyday",
 ]
 
 NORMAL_TRIP_WORDS = [
@@ -78,14 +74,12 @@ NORMAL_TRIP_WORDS = [
     "ابي مشوار", "احتاج توصيل", "ابغا مشوار", "من يوصلني", "فيه كابتن",
     "اوصلني", "ودني", "خذني", "نبغى", "نبي", "ابي", "أبي", "ابغا",
     "أبغا", "اريد", "أريد", "عايز", "محتاج", "محتاجة",
-    "trip", "ride", "from", "to", "need", "pickup",
 ]
 
 PRESENCE_WORDS = [
     "متواجد", "موجود", "انا في", "أنا في", "انا عند", "أنا عند",
     "متوفر", "مستعد", "جاهز", "في الانتظار", "بالخدمة", "متواجده",
-    "موجوده", "متواجدة", "موجودة", "available", "here", "ready",
-    "present", "online", "واقف", "واقفه", "واقفة", "انتظر", "مستني",
+    "موجوده", "متواجدة", "موجودة", "واقف", "واقفه", "واقفة", "انتظر", "مستني",
     "في الموقع", "بالموقع", "متجهز", "متجهزة",
 ]
 
@@ -96,25 +90,6 @@ LOCATIONS = [
     "السليمانية", "العزيزية", "الفيحاء", "الجامعة", "الحمراء", "الاندلس",
     "الأندلس", "الربوة", "النزهة", "المشرفة", "بني مالك", "الهدا",
     "الشفا", "الحمدانية", "السنابل", "المداين", "السالم",
-]
-
-GREETINGS = [
-    (["السلام عليكم", "سلام عليكم"], ["وعليكم السلام 🌹🚘", "وعليكم السلام يا هلا 👋"]),
-    (["هلا", "مرحبا", "اهلا"], ["هلا وغلا 🌹", "يا هلا والله 👋"]),
-    (["صباح الخير"], ["صباح النور ☀️🌹"]),
-    (["مساء الخير"], ["مساء النور 🌙🌹"]),
-]
-
-CHAT_RESPONSES = [
-    (["كيفك", "كيف حالك"], ["بخير 🌹", "تمام 😊"]),
-    (["وش تسوي"], ["أنتظر مشوارك 😎🚘"]),
-    (["تحبني"], ["أحبك ❤️"]),
-    (["نكت", "قول نكتة"], ["مرة كابتن نسى العميل وراح 😂"]),
-    (["شسمك"], "اسمي بوت المشاوير 😎"),
-    (["طفشان", "ملل"], ["اطلب مشوار وتروق 🚘"]),
-    (["احبك", "حبيبي"], ["حبيبي أنت 🌹"]),
-    (["كم السعر"], ["💰 السعر بالتفاهم 🤝"]),
-    (["بوت", "يا بوت"], ["نعم أنا هنا 🤖"]),
 ]
 
 # ============================================================
@@ -227,7 +202,6 @@ class Database:
     def add_ready_driver(self, trip_id, driver_id):
         with self.connect() as con:
             cur = con.cursor()
-            # استخدام INSERT OR IGNORE لتفادي أخطاء التكرار مع الحفاظ على استمرارية التنفيذ
             cur.execute("""
                 INSERT OR IGNORE INTO ready_drivers (trip_id, driver_id)
                 VALUES (?, ?)
@@ -298,10 +272,11 @@ class SmartRidesBot:
 
     def looks_like_trip(self, text):
         normalized = self.normalize_text(text)
+        
+        # 🛑 منع رسائل التواجد والإعلانات من أن تُعتبر طلباً نهائياً
         if self.detect_presence(text):
-            route_exists = bool(re.search(r"من\s+.+?\s+(?:الى|الي|لل)\s+.+", normalized, re.IGNORECASE))
-            if not route_exists and not any(w in normalized for w in ["ابغى", "ابي", "احتاج", "يوصلني", "مشوار", "توصيل"]):
-                return False
+            return False
+
         if self.detect_trip_type(text):
             return True
         if re.search(r"من\s+.+?\s+(?:الى|الي|لل)\s+.+", normalized, re.IGNORECASE):
@@ -376,7 +351,7 @@ class SmartRidesBot:
 """
                 await message.reply_text(card, parse_mode=ParseMode.HTML)
                 return
-            elif role != "driver" and not self.looks_like_trip(text):
+            else:
                 await message.reply_text(
                     "📝 <b>سجل نوعك أولاً لكي تتمكن من إعلان التواجد!</b>\n\n"
                     "🚕 للكابتن: اكتب «أنا كابتن»\n👤 للعميل: اكتب «أنا عميل»",
@@ -384,11 +359,8 @@ class SmartRidesBot:
                 )
                 return
 
-        # 4️⃣ طلب مشوار
+        # 4️⃣ طلب مشوار (فقط إذا طابقت الشروط الحقيقية للطلب)
         if self.looks_like_trip(text):
-            if self.db.is_driver(user.id):
-                if not any(w in normalized_text for w in ["ابغى", "ابي", "احتاج", "يوصلني", "يوديني", "من يوصلني"]):
-                    return
             await self.handle_trip_request(update, context, text)
             return
 
@@ -446,7 +418,6 @@ class SmartRidesBot:
         if not self.db.is_driver(driver.id):
             self.db.set_role(driver.id, "driver")
 
-        # تسجيل الكابتن وإرسال البطاقة للقروب مباشرة ودون توقف
         self.db.add_ready_driver(trip_id, driver.id)
 
         trip = self.db.get_trip(trip_id)
@@ -465,7 +436,6 @@ class SmartRidesBot:
             [InlineKeyboardButton("🚕 تواصل مع الكابتن", callback_data=f"contact_driver:{trip_id}:{driver.id}")]
         ])
 
-        # إرسال بطاقة الكابتن إلى القروب في كل مرة يضغط فيها على الزر
         await context.bot.send_message(
             chat_id=GROUP_ID,
             text=card_text,
@@ -476,7 +446,6 @@ class SmartRidesBot:
 
     async def contact_customer(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
-        user = query.from_user
         try:
             data = query.data.split(":")
             trip_id, driver_id = int(data[1]), int(data[2])
@@ -533,7 +502,7 @@ class SmartRidesBot:
         app.add_handler(CallbackQueryHandler(self.contact_driver, pattern=r"^contact_driver:"))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
 
-        print("✅ البوت يعمل بنجاح بدون تكرار وبحفظ دائم للقاعدة...")
+        print("✅ البوت يعمل بنجاح وبدون تداخل بين التواجد وطلبات العملاء...")
         app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
