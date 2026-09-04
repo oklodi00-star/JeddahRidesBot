@@ -1,5 +1,5 @@
 """
-🤖 بوت مشاوير جدة الذكي - النسخة الكاملة والمحدثة
+🤖 بوت مشاوير جدة الذكي - مع نظام الترحيب التلقائي، الأزرار التفاعلية، وحظر الروابط
 """
 
 import os
@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters, ChatMemberHandler
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 
 # ============================================================
 # ⚙️ الإعدادات الأساسية
@@ -22,6 +22,8 @@ GROUP_NAME = "🚘 مشاوير جدة وضواحيها"
 ADMIN_USERNAME = "klodi500"
 ADMIN_IDS = [952638746]
 
+ALLOWED_GROUP_LINK = "https://t.me/JeddahRidesGroup"
+
 SAUDI_TZ = ZoneInfo("Asia/Riyadh")
 DB_FILE = "smart_rides.db"
 
@@ -32,10 +34,21 @@ RULES_TEXT = f"""
 2️⃣ يكتب العميل طلبه مباشرة.
 3️⃣ 🚕 يضغط الكابتن على زر «أنا جاهز للمشوار» تحت الطلب.
 4️⃣ 💰 يتم التفاهم على السعر بالخاص.
-5️⃣ 🚫 يمنع الإعلان أو إرسال رسائل خارجية.
+5️⃣ 🚫 يمنع الإعلان أو إرسال الروابط الخارجية منعاً باتاً.
 6️⃣ 🤝 الاحترام المتبادل واجب بين الجميع.
 
 📩 <b>الإدارة:</b> @{ADMIN_USERNAME}
+"""
+
+WELCOME_TEXT = f"""
+🎉 <b>أهلاً بك في {GROUP_NAME}!</b>
+
+نحن هنا لتسهيل تنقلاتكم داخل جدة بكل سرعة وأمان. 🚗💨
+
+📌 <b>طريقة طلب مشوار:</b>
+فقط اكتب تفاصيل طلبك مباشرة في القروب (مثال: <i>من الفضيلة إلى الرغامة</i>)، وسيقوم البوت بتسجيل طلبك فوراً ليظهر للكباتن!
+
+اختر حالتك أو تصفح القسم الذي يناسبك عبر الأزرار أدناه 👇
 """
 
 MONTHLY_TRIP_WORDS = [
@@ -189,11 +202,6 @@ class Database:
         cur.execute("INSERT INTO user_memory (user_id, message_text) VALUES (?, ?)", (user_id, text))
         self.conn.commit()
 
-    def get_memory(self, user_id, limit=3):
-        cur = self.conn.cursor()
-        cur.execute("SELECT message_text FROM user_memory WHERE user_id = ? ORDER BY timestamp DESC LIMIT ?", (user_id, limit))
-        return [row["message_text"] for row in cur.fetchall()]
-
     def is_spam(self, user_id, text, within_seconds=30):
         cutoff = datetime.now() - timedelta(seconds=within_seconds)
         cur = self.conn.cursor()
@@ -226,6 +234,27 @@ class SmartRidesBot:
             return ""
         return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
+    def contains_unauthorized_links(self, text, message_entities):
+        if not text:
+            return False
+
+        if message_entities:
+            for entity in message_entities:
+                if entity.type in ["url", "text_link"]:
+                    url_val = entity.url if entity.type == "text_link" else text[entity.offset:entity.offset + entity.length]
+                    if url_val and url_val.strip().lower() != ALLOWED_GROUP_LINK.lower():
+                        return True
+
+        url_pattern = r"(https?://[^\s]+|www\.[^\s]+|[a-zA-Z0-9][-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*))"
+        found_urls = re.findall(url_pattern, text)
+        
+        for u in found_urls:
+            clean_u = u.strip()
+            if clean_u.lower() != ALLOWED_GROUP_LINK.lower() and not clean_u.endswith(ALLOWED_GROUP_LINK.lower()):
+                return True
+
+        return False
+
     def looks_like_trip(self, text):
         norm = self.normalize_text(text)
         if any(w in norm for w in PRESENCE_WORDS):
@@ -251,73 +280,47 @@ class SmartRidesBot:
         
         return "موقع البداية", "الوجهة المطلوبة"
 
-    # 🆕 دالة الترحيب بالأعضاء الجدد
-    async def welcome_new_members(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def handle_new_member(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """ترحيب تلقائي بالأعضاء الجدد مع الأزرار المطلوبة"""
         for member in update.message.new_chat_members:
             if member.is_bot:
                 continue
-            # إرسال رسالة ترحيب مع أزرار
+            
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🚕 أنا كابتن", callback_data="register_driver"),
-                 InlineKeyboardButton("👤 أنا عميل", callback_data="register_customer")],
-                [InlineKeyboardButton("📋 قوانين القروب", callback_data="show_rules"),
-                 InlineKeyboardButton("📩 الإدارة", url=f"tg://user?id={ADMIN_IDS[0]}")]
+                [
+                    InlineKeyboardButton("🚕 أنا كابتن", callback_data="btn_driver"),
+                    InlineKeyboardButton("👤 أنا عميل", callback_data="btn_customer")
+                ],
+                [
+                    InlineKeyboardButton("🛠 إدارة البوت", url=f"https://t.me/{ADMIN_USERNAME}"),
+                    InlineKeyboardButton("📋 القوانين", callback_data="btn_rules")
+                ]
             ])
+
             await update.message.reply_text(
-                f"👋 <b>أهلاً بك في {GROUP_NAME}!</b>\n\n"
-                f"اختر نوعك للبدء:\n"
-                f"🚕 كابتن: لتقديم خدمات التوصيل.\n"
-                f"👤 عميل: لطلب المشاوير.\n\n"
-                f"اضغط الأزرار بالأسفل للتسجيل ومعرفة القوانين.",
+                f"مرحباً بك {member.first_name} في قروب {GROUP_NAME}!\n\n" + WELCOME_TEXT,
                 parse_mode=ParseMode.HTML,
                 reply_markup=keyboard
             )
 
-    # 🆕 دالة معالجة الأزرار العامة
-    async def handle_main_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def handle_callback_buttons(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """معالجة نقرات الأزرار للترحيب والقوانين"""
         query = update.callback_query
         data = query.data
-        user = query.from_user
-        await query.answer()
 
-        if data == "register_driver":
-            self.db.set_role(user.id, "driver")
-            await query.edit_message_text(
-                "✅ تم تسجيلك ككابتن بنجاح!\n"
-                "📍 أرسل موقعك الحالي لإعلان التواجد.\n"
-                "أو اكتب (أنا كابتن) متبوعاً بالموقع.",
+        if data == "btn_driver":
+            self.db.set_role(query.from_user.id, "driver")
+            await query.answer("✅ تم تسجيلك ككابتن بنجاح في النظام!", show_alert=True)
+        elif data == "btn_customer":
+            self.db.set_role(query.from_user.id, "customer")
+            await query.answer("✅ تم تسجيلك كعميل بنجاح في النظام!", show_alert=True)
+        elif data == "btn_rules":
+            await query.answer()
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text=RULES_TEXT,
                 parse_mode=ParseMode.HTML
             )
-        elif data == "register_customer":
-            self.db.set_role(user.id, "customer")
-            await query.edit_message_text(
-                "✅ تم تسجيلك كعميل بنجاح!\n"
-                "اكتب تفاصيل مشوارك مباشرة (مثال: من الفضيلة إلى الرغامة).",
-                parse_mode=ParseMode.HTML
-            )
-        elif data == "show_rules":
-            await query.edit_message_text(
-                RULES_TEXT,
-                parse_mode=ParseMode.HTML
-            )
-
-    # 🆕 دالة /start مع أزرار
-    async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🚕 أنا كابتن", callback_data="register_driver"),
-             InlineKeyboardButton("👤 أنا عميل", callback_data="register_customer")],
-            [InlineKeyboardButton("📋 قوانين القروب", callback_data="show_rules"),
-             InlineKeyboardButton("📩 الإدارة", url=f"tg://user?id={ADMIN_IDS[0]}")]
-        ])
-        await update.message.reply_text(
-            f"🚘 <b>{GROUP_NAME}</b>\n\n"
-            "اختر نوعك للبدء:\n"
-            "🚕 كابتن: لتقديم خدمات التوصيل.\n"
-            "👤 عميل: لطلب المشاوير.\n\n"
-            "اضغط الأزرار بالأسفل.",
-            parse_mode=ParseMode.HTML,
-            reply_markup=keyboard
-        )
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = update.message
@@ -328,10 +331,24 @@ class SmartRidesBot:
         self.db.save_user(user)
 
         if self.db.is_banned(user.id):
-            await message.reply_text("⛔️ أنت محظور من استخدام البوت.")
             return
 
         text = message.text or message.caption or ""
+        entities = message.entities or message.caption_entities or []
+
+        if self.contains_unauthorized_links(text, entities):
+            try:
+                await message.delete()
+            except Exception:
+                pass
+            
+            warning_msg = await context.bot.send_message(
+                chat_id=message.chat_id,
+                text=f"⚠️ عذراً يا {user.first_name}، ممنوع إرسال الروابط أو الإعلانات الخارجية في القروب. يُسمح فقط برابط القروب الرسمي."
+            )
+            context.job_queue.run_once(lambda ctx: ctx.bot.delete_message(chat_id=message.chat_id, message_id=warning_msg.message_id), 6)
+            return
+
         if not text:
             return
 
@@ -392,8 +409,6 @@ class SmartRidesBot:
 
 📋 <b>النوع:</b> {type_badge}
 📝 <b>التفاصيل:</b> {self.html(text)}
-
-⚠️ <b>تنبيه هام:</b> لا تتعامل مع الكباتن الذين لم يسجلوا جاهزين حفاظاً على سلامتك.
 
 🚕 <b>للكباتن:</b> اضغط الزر أدناه عند الجاهزية للتنفيذ 👇
 """
@@ -469,23 +484,20 @@ def main():
     application = Application.builder().token(TOKEN).build()
     bot_instance = SmartRidesBot()
 
-    # 📝 أوامر
-    application.add_handler(CommandHandler("start", bot_instance.cmd_start))
+    application.add_handler(CommandHandler("start", lambda u, c: u.message.reply_text(f"🚘 أهلاً بك في {GROUP_NAME}\nالبوت يعمل بكفاءة والترحيب التلقائي مفعل.")))
     application.add_handler(CommandHandler("rules", lambda u, c: u.message.reply_text(RULES_TEXT, parse_mode=ParseMode.HTML)))
     
-    # 🖱️ معالجات الأزرار العامة
-    application.add_handler(CallbackQueryHandler(bot_instance.handle_main_callback, pattern=r"^(register_driver|register_customer|show_rules)$"))
-    # معالجات أزرار الرحلات
+    # معالجة انضمام أعضاء جدد
+    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_instance.handle_new_member))
+    
+    # معالجة الأزرار التفاعلية
     application.add_handler(CallbackQueryHandler(bot_instance.handle_take_trip, pattern=r"^take_trip:"))
     application.add_handler(CallbackQueryHandler(bot_instance.close_trip, pattern=r"^close_trip:"))
-
-    # 👥 ترحيب بالأعضاء الجدد
-    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_instance.welcome_new_members))
-
-    # 💬 رسائل النص
+    application.add_handler(CallbackQueryHandler(bot_instance.handle_callback_buttons, pattern=r"^btn_"))
+    
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot_instance.handle_message))
 
-    print("✅ تم تشغيل بوت مشاوير جدة بنجاح واستقرار تام...")
+    print("✅ تم تشغيل بوت مشاوير جدة بنجاح مع الترحيب والأزرار وحظر الروابط...")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
