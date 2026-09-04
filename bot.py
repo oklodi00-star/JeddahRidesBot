@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters, ChatMemberHandler
 
 # ============================================================
 # ⚙️ الإعدادات الأساسية
@@ -251,6 +251,74 @@ class SmartRidesBot:
         
         return "موقع البداية", "الوجهة المطلوبة"
 
+    # 🆕 دالة الترحيب بالأعضاء الجدد
+    async def welcome_new_members(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        for member in update.message.new_chat_members:
+            if member.is_bot:
+                continue
+            # إرسال رسالة ترحيب مع أزرار
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🚕 أنا كابتن", callback_data="register_driver"),
+                 InlineKeyboardButton("👤 أنا عميل", callback_data="register_customer")],
+                [InlineKeyboardButton("📋 قوانين القروب", callback_data="show_rules"),
+                 InlineKeyboardButton("📩 الإدارة", url=f"tg://user?id={ADMIN_IDS[0]}")]
+            ])
+            await update.message.reply_text(
+                f"👋 <b>أهلاً بك في {GROUP_NAME}!</b>\n\n"
+                f"اختر نوعك للبدء:\n"
+                f"🚕 كابتن: لتقديم خدمات التوصيل.\n"
+                f"👤 عميل: لطلب المشاوير.\n\n"
+                f"اضغط الأزرار بالأسفل للتسجيل ومعرفة القوانين.",
+                parse_mode=ParseMode.HTML,
+                reply_markup=keyboard
+            )
+
+    # 🆕 دالة معالجة الأزرار العامة
+    async def handle_main_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        data = query.data
+        user = query.from_user
+        await query.answer()
+
+        if data == "register_driver":
+            self.db.set_role(user.id, "driver")
+            await query.edit_message_text(
+                "✅ تم تسجيلك ككابتن بنجاح!\n"
+                "📍 أرسل موقعك الحالي لإعلان التواجد.\n"
+                "أو اكتب (أنا كابتن) متبوعاً بالموقع.",
+                parse_mode=ParseMode.HTML
+            )
+        elif data == "register_customer":
+            self.db.set_role(user.id, "customer")
+            await query.edit_message_text(
+                "✅ تم تسجيلك كعميل بنجاح!\n"
+                "اكتب تفاصيل مشوارك مباشرة (مثال: من الفضيلة إلى الرغامة).",
+                parse_mode=ParseMode.HTML
+            )
+        elif data == "show_rules":
+            await query.edit_message_text(
+                RULES_TEXT,
+                parse_mode=ParseMode.HTML
+            )
+
+    # 🆕 دالة /start مع أزرار
+    async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🚕 أنا كابتن", callback_data="register_driver"),
+             InlineKeyboardButton("👤 أنا عميل", callback_data="register_customer")],
+            [InlineKeyboardButton("📋 قوانين القروب", callback_data="show_rules"),
+             InlineKeyboardButton("📩 الإدارة", url=f"tg://user?id={ADMIN_IDS[0]}")]
+        ])
+        await update.message.reply_text(
+            f"🚘 <b>{GROUP_NAME}</b>\n\n"
+            "اختر نوعك للبدء:\n"
+            "🚕 كابتن: لتقديم خدمات التوصيل.\n"
+            "👤 عميل: لطلب المشاوير.\n\n"
+            "اضغط الأزرار بالأسفل.",
+            parse_mode=ParseMode.HTML,
+            reply_markup=keyboard
+        )
+
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = update.message
         user = update.effective_user
@@ -324,6 +392,8 @@ class SmartRidesBot:
 
 📋 <b>النوع:</b> {type_badge}
 📝 <b>التفاصيل:</b> {self.html(text)}
+
+⚠️ <b>تنبيه هام:</b> لا تتعامل مع الكباتن الذين لم يسجلوا جاهزين حفاظاً على سلامتك.
 
 🚕 <b>للكباتن:</b> اضغط الزر أدناه عند الجاهزية للتنفيذ 👇
 """
@@ -399,12 +469,20 @@ def main():
     application = Application.builder().token(TOKEN).build()
     bot_instance = SmartRidesBot()
 
-    application.add_handler(CommandHandler("start", lambda u, c: u.message.reply_text(f"🚘 أهلاً بك في {GROUP_NAME}\nالبوت يعمل بكفاءة عالية.")))
+    # 📝 أوامر
+    application.add_handler(CommandHandler("start", bot_instance.cmd_start))
     application.add_handler(CommandHandler("rules", lambda u, c: u.message.reply_text(RULES_TEXT, parse_mode=ParseMode.HTML)))
     
+    # 🖱️ معالجات الأزرار العامة
+    application.add_handler(CallbackQueryHandler(bot_instance.handle_main_callback, pattern=r"^(register_driver|register_customer|show_rules)$"))
+    # معالجات أزرار الرحلات
     application.add_handler(CallbackQueryHandler(bot_instance.handle_take_trip, pattern=r"^take_trip:"))
     application.add_handler(CallbackQueryHandler(bot_instance.close_trip, pattern=r"^close_trip:"))
-    
+
+    # 👥 ترحيب بالأعضاء الجدد
+    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_instance.welcome_new_members))
+
+    # 💬 رسائل النص
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot_instance.handle_message))
 
     print("✅ تم تشغيل بوت مشاوير جدة بنجاح واستقرار تام...")
