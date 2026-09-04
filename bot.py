@@ -1,5 +1,5 @@
 """
-🤖 بوت مشاوير جدة الذكي - النسخة المعدلة والمحسنة بدقة
+🤖 بوت مشاوير جدة الذكي - النسخة المتوافقة مع أحدث إصدارات مكتبة تيليجرام
 """
 
 import os
@@ -235,14 +235,6 @@ class Database:
         cur.execute("INSERT INTO anti_spam (user_id, message_text) VALUES (?, ?)", (user_id, text))
         self.conn.commit()
 
-    def get_stats(self):
-        cur = self.conn.cursor()
-        cur.execute("SELECT COUNT(*) as cnt FROM users")
-        users = cur.fetchone()["cnt"]
-        cur.execute("SELECT COUNT(*) as cnt FROM trips")
-        trips = cur.fetchone()["cnt"]
-        return {"users": users, "trips": trips}
-
 # ============================================================
 # 🤖 آليات المعالجة والذكاء البرمجي
 # ============================================================
@@ -277,7 +269,6 @@ class SmartRidesBot:
         if self.looks_like_trip(text):
             return "trip"
         
-        # تتبع السياق إذا كان المستخدم يكمل رسالة سابقة
         if previous_messages:
             last = previous_messages[0]
             if any(w in self.normalize_text(last) for w in ["من", "الى", "توصيل"]) and len(text) > 2:
@@ -302,14 +293,10 @@ class SmartRidesBot:
         if match:
             pickup = match.group(1).strip()
             dest = match.group(2).strip()
-            # تطبيق أولوية السلام مول كنقطة نزول أولى إذا وُجدت
-            if "السلام" in dest or "السلام مول" in dest:
-                pass
             return pickup, dest
 
         locations = [loc for loc in LOCATIONS if self.normalize_text(loc) in norm]
         if len(locations) >= 2:
-            # ترتيب ذكي لأولوية السلام مول كمحطة أولى عند التداخل
             if any("السلام" in self.normalize_text(l) for l in locations):
                 for i, l in enumerate(locations):
                     if "السلام" in self.normalize_text(l) and i > 0:
@@ -456,7 +443,7 @@ class SmartRidesBot:
         self.db.close_trip(trip_id)
         await query.edit_message_text("✅ تم إغلاق المشوار بنجاح، شكراً لاستخدامكم البوت.")
 
-    async def run(self):
+    def run(self):
         if not TOKEN or TOKEN == "ضع_التوكن_هنا":
             print("❌ تنبيه: يرجى وضع توكن البوت الصحيح في المتغير TOKEN.")
             return
@@ -472,7 +459,7 @@ class SmartRidesBot:
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
 
         print("✅ تم تشغيل بوت مشاوير جدة بنجاح واستقرار تام...")
-        app.run_polling(allowed_updates=Update.ALL_TYPES)
+        app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
