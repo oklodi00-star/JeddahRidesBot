@@ -1,5 +1,5 @@
 """
-🤖 بوت مشاوير جدة الذكي - النسخة المتوافقة مع أحدث إصدارات مكتبة تيليجرام
+🤖 بوت مشاوير جدة الذكي - النسخة الكاملة والمحدثة لمعالجة الرسائل المركبة (سلام + طلب)
 """
 
 import os
@@ -16,18 +16,14 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 # ⚙️ الإعدادات الأساسية
 # ============================================================
 
-TOKEN = os.getenv("BOT_TOKEN", "ضع_التوكن_هنا").strip()
-GROUP_ID = -1001234567890  # ⚠️ ضع معرف قروبك هنا
+TOKEN = os.getenv("BOT_TOKEN", "").strip()
+GROUP_ID = -1001234567890
 GROUP_NAME = "🚘 مشاوير جدة وضواحيها"
 ADMIN_USERNAME = "klodi500"
-ADMIN_IDS = [952638746]  # ⚠️ ضع معرفك الرقمي هنا
+ADMIN_IDS = [952638746]
 
 SAUDI_TZ = ZoneInfo("Asia/Riyadh")
 DB_FILE = "smart_rides.db"
-
-# ============================================================
-# 📋 قوانين القروب
-# ============================================================
 
 RULES_TEXT = f"""
 📋 <b>قوانين {GROUP_NAME}</b>
@@ -41,10 +37,6 @@ RULES_TEXT = f"""
 
 📩 <b>الإدارة:</b> @{ADMIN_USERNAME}
 """
-
-# ============================================================
-# 🧠 الكلمات المفتاحية والمواقع
-# ============================================================
 
 MONTHLY_TRIP_WORDS = [
     "شهري", "بالشهر", "كل يوم", "يوميا", "يومياً", "دوام", "مدرسة",
@@ -122,14 +114,6 @@ class Database:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(trip_id, driver_id)
         )""")
-        cur.execute("""CREATE TABLE IF NOT EXISTS driver_presence (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            driver_id INTEGER UNIQUE,
-            location TEXT,
-            latitude REAL,
-            longitude REAL,
-            last_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )""")
         cur.execute("""CREATE TABLE IF NOT EXISTS user_memory (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -200,19 +184,6 @@ class Database:
         cur.execute("INSERT OR IGNORE INTO ready_drivers (trip_id, driver_id) VALUES (?, ?)", (trip_id, driver_id))
         self.conn.commit()
 
-    def set_presence(self, driver_id, location, latitude=None, longitude=None):
-        cur = self.conn.cursor()
-        cur.execute("""
-            INSERT INTO driver_presence (driver_id, location, latitude, longitude)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(driver_id) DO UPDATE SET
-                location = excluded.location,
-                latitude = excluded.latitude,
-                longitude = excluded.longitude,
-                last_update = CURRENT_TIMESTAMP
-        """, (driver_id, location, latitude, longitude))
-        self.conn.commit()
-
     def add_memory(self, user_id, text):
         cur = self.conn.cursor()
         cur.execute("INSERT INTO user_memory (user_id, message_text) VALUES (?, ?)", (user_id, text))
@@ -236,7 +207,7 @@ class Database:
         self.conn.commit()
 
 # ============================================================
-# 🤖 آليات المعالجة والذكاء البرمجي
+# 🤖 آليات المعالجة والذكاء
 # ============================================================
 
 class SmartRidesBot:
@@ -254,27 +225,6 @@ class SmartRidesBot:
         if not text:
             return ""
         return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-    def classify_intent(self, text, user_role, previous_messages=None):
-        norm = self.normalize_text(text).strip()
-
-        if any(g in norm for g in GREETINGS):
-            return "greeting"
-        if norm in ["انا كابتن", "كابتن", "سايق", "سواق"]:
-            return "register_driver"
-        if norm in ["انا عميل", "عميل", "زبون"]:
-            return "register_customer"
-        if any(w in norm for w in PRESENCE_WORDS):
-            return "presence" if user_role == "driver" else "presence_not_driver"
-        if self.looks_like_trip(text):
-            return "trip"
-        
-        if previous_messages:
-            last = previous_messages[0]
-            if any(w in self.normalize_text(last) for w in ["من", "الى", "توصيل"]) and len(text) > 2:
-                return "trip_detail"
-
-        return "unknown"
 
     def looks_like_trip(self, text):
         norm = self.normalize_text(text)
@@ -297,10 +247,6 @@ class SmartRidesBot:
 
         locations = [loc for loc in LOCATIONS if self.normalize_text(loc) in norm]
         if len(locations) >= 2:
-            if any("السلام" in self.normalize_text(l) for l in locations):
-                for i, l in enumerate(locations):
-                    if "السلام" in self.normalize_text(l) and i > 0:
-                        locations.insert(0, locations.pop(i))
             return locations[0], locations[1]
         
         return "موقع البداية", "الوجهة المطلوبة"
@@ -327,36 +273,35 @@ class SmartRidesBot:
         self.db.add_memory(user.id, text)
 
         role = self.db.get_role(user.id)
-        previous = self.db.get_memory(user.id, limit=2)
-        intent = self.classify_intent(text, role, previous)
+        norm = self.normalize_text(text).strip()
 
-        if intent == "greeting":
-            await message.reply_text("وعليكم السلام ورحمة الله! 😊 أهلاً بك في مشاوير جدة، كيف يمكنني خدمتك اليوم؟")
+        # الأولوية القصوى لمعالجة طلبات المشاوير (حتى لو بدأت بتحية)
+        if self.looks_like_trip(text):
+            await self.handle_trip(update, context, text)
             return
 
-        if intent == "register_driver":
+        if norm in ["انا كابتن", "كابتن", "سايق", "سواق"]:
             self.db.set_role(user.id, "driver")
             await message.reply_text("✅ تم تسجيلك ككابتن بنجاح!\n📍 أرسل موقعك الحالي الآن لإعلان التواجد.")
             return
 
-        if intent == "register_customer":
+        if norm in ["انا عميل", "عميل", "زبون"]:
             self.db.set_role(user.id, "customer")
             await message.reply_text("✅ تم تسجيلك كعميل بنجاح!\nيمكنك الآن إرسال تفاصيل مشوارك.")
             return
 
-        if intent == "presence":
-            await message.reply_text("📍 تم تسجيل تواجدك في النظام بنجاح وجاهزيتك للمشاوير.")
+        if any(w in norm for w in PRESENCE_WORDS):
+            if role == "driver":
+                await message.reply_text("📍 تم تسجيل تواجدك في النظام بنجاح وجاهزيتك للمشاوير.")
+            else:
+                await message.reply_text("📝 يرجى التسجيل ككابتن أولاً عبر كتابة: (أنا كابتن).")
             return
 
-        if intent == "presence_not_driver":
-            await message.reply_text("📝 يرجى التسجيل ككابتن أولاً عبر كتابة: (أنا كابتن).")
+        if any(g == norm or norm.startswith(g + " ") for g in GREETINGS):
+            await message.reply_text("وعليكم السلام ورحمة الله! 😊 أهلاً بك في مشاوير جدة، اكتب تفاصيل مشوارك وسأقوم بتسجيله فوراً.")
             return
 
-        if intent in ["trip", "trip_detail"]:
-            await self.handle_trip(update, context, text)
-            return
-
-        await message.reply_text("❓ عذراً، لم أفهم طلبك. هل ترغب في طلب مشوار أم إعلان تواجدك؟")
+        await message.reply_text("❓ عذراً، لم أفهم طلبك. اكتب طلب المشوار مباشرة (مثلاً: من الفضيلة إلى الرغامة).")
 
     async def handle_trip(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text):
         message = update.message
@@ -443,25 +388,25 @@ class SmartRidesBot:
         self.db.close_trip(trip_id)
         await query.edit_message_text("✅ تم إغلاق المشوار بنجاح، شكراً لاستخدامكم البوت.")
 
-    def run(self):
-        if not TOKEN or TOKEN == "ضع_التوكن_هنا":
-            print("❌ تنبيه: يرجى وضع توكن البوت الصحيح في المتغير TOKEN.")
-            return
+def main():
+    if not TOKEN:
+        print("❌ تنبيه: يرجى التأكد من وضع توكن البوت في المتغيرات.")
+        return
 
-        app = Application.builder().token(TOKEN).build()
+    application = Application.builder().token(TOKEN).build()
+    bot_instance = SmartRidesBot()
 
-        app.add_handler(CommandHandler("start", lambda u, c: u.message.reply_text(f"🚘 أهلاً بك في {GROUP_NAME}\nالبوت يعمل بكفاءة عالية.")))
-        app.add_handler(CommandHandler("rules", lambda u, c: u.message.reply_text(RULES_TEXT, parse_mode=ParseMode.HTML)))
-        
-        app.add_handler(CallbackQueryHandler(self.handle_take_trip, pattern=r"^take_trip:"))
-        app.add_handler(CallbackQueryHandler(self.close_trip, pattern=r"^close_trip:"))
-        
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+    application.add_handler(CommandHandler("start", lambda u, c: u.message.reply_text(f"🚘 أهلاً بك في {GROUP_NAME}\nالبوت يعمل بكفاءة عالية.")))
+    application.add_handler(CommandHandler("rules", lambda u, c: u.message.reply_text(RULES_TEXT, parse_mode=ParseMode.HTML)))
+    
+    application.add_handler(CallbackQueryHandler(bot_instance.handle_take_trip, pattern=r"^take_trip:"))
+    application.add_handler(CallbackQueryHandler(bot_instance.close_trip, pattern=r"^close_trip:"))
+    
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot_instance.handle_message))
 
-        print("✅ تم تشغيل بوت مشاوير جدة بنجاح واستقرار تام...")
-        app.run_polling(drop_pending_updates=True)
+    print("✅ تم تشغيل بوت مشاوير جدة بنجاح واستقرار تام...")
+    application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    bot = SmartRidesBot()
-    bot.run()
+    main()
