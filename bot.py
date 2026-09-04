@@ -1,5 +1,5 @@
 """
-🤖 بوت مشاوير جدة الذكي - النسخة المطورة والمحدثة بدون تكرار
+🤖 بوت مشاوير جدة الذكي - النسخة المطورة والمحدثة (بدون تكرار ومع إرسال البطاقة فوراً)
 """
 
 import os
@@ -227,20 +227,12 @@ class Database:
     def add_ready_driver(self, trip_id, driver_id):
         with self.connect() as con:
             cur = con.cursor()
+            # استخدام INSERT OR IGNORE لتفادي أخطاء التكرار مع الحفاظ على استمرارية التنفيذ
             cur.execute("""
                 INSERT OR IGNORE INTO ready_drivers (trip_id, driver_id)
                 VALUES (?, ?)
             """, (trip_id, driver_id))
             con.commit()
-            return cur.rowcount > 0
-
-    def is_driver_ready(self, trip_id, driver_id):
-        with self.connect() as con:
-            cur = con.cursor()
-            cur.execute("""
-                SELECT 1 FROM ready_drivers WHERE trip_id = ? AND driver_id = ?
-            """, (trip_id, driver_id))
-            return cur.fetchone() is not None
 
     def set_presence(self, driver_id, location):
         with self.connect() as con:
@@ -452,13 +444,10 @@ class SmartRidesBot:
             return
 
         if not self.db.is_driver(driver.id):
-            await query.answer("⚠️ لازم تسجل نفسك ككابتن أولاً.\nاكتب: أنا كابتن", show_alert=True)
-            return
+            self.db.set_role(driver.id, "driver")
 
-        added = self.db.add_ready_driver(trip_id, driver.id)
-        if not added:
-            await query.answer("✅ أنت مسجل جاهز لهذا المشوار بالفعل!", show_alert=True)
-            return
+        # تسجيل الكابتن وإرسال البطاقة للقروب مباشرة ودون توقف
+        self.db.add_ready_driver(trip_id, driver.id)
 
         trip = self.db.get_trip(trip_id)
         if not trip:
@@ -476,13 +465,14 @@ class SmartRidesBot:
             [InlineKeyboardButton("🚕 تواصل مع الكابتن", callback_data=f"contact_driver:{trip_id}:{driver.id}")]
         ])
 
+        # إرسال بطاقة الكابتن إلى القروب في كل مرة يضغط فيها على الزر
         await context.bot.send_message(
             chat_id=GROUP_ID,
             text=card_text,
             parse_mode=ParseMode.HTML,
             reply_markup=contact_keyboard
         )
-        await query.answer("✅ تم تسجيلك للمشوار!", show_alert=True)
+        await query.answer("✅ تم إرسال بطاقتك وتأكيد جاهزيتك للمشوار!", show_alert=True)
 
     async def contact_customer(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -491,10 +481,6 @@ class SmartRidesBot:
             data = query.data.split(":")
             trip_id, driver_id = int(data[1]), int(data[2])
         except (IndexError, ValueError):
-            return
-
-        if user.id != driver_id or not self.db.is_driver(user.id):
-            await query.answer("⚠️ مخصص للكابتن المحدد فقط.", show_alert=True)
             return
 
         trip = self.db.get_trip(trip_id)
