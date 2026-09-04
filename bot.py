@@ -1,5 +1,5 @@
 """
-🤖 بوت مشاوير جدة الذكي - مع نظام الترحيب التلقائي، الأزرار التفاعلية، وحظر الروابط
+🤖 بوت مشاوير جدة الذكي - مع رسالة الترحيب، زر الشكاوي، وحظر الروابط
 """
 
 import os
@@ -281,7 +281,7 @@ class SmartRidesBot:
         return "موقع البداية", "الوجهة المطلوبة"
 
     async def handle_new_member(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """ترحيب تلقائي بالأعضاء الجدد مع الأزرار المطلوبة"""
+        """ترحيب تلقائي بالأعضاء الجدد مع زر الشكاوي والقوانين"""
         for member in update.message.new_chat_members:
             if member.is_bot:
                 continue
@@ -292,7 +292,7 @@ class SmartRidesBot:
                     InlineKeyboardButton("👤 أنا عميل", callback_data="btn_customer")
                 ],
                 [
-                    InlineKeyboardButton("🛠 إدارة البوت", url=f"https://t.me/{ADMIN_USERNAME}"),
+                    InlineKeyboardButton("⚠️ الشكاوي", url=f"https://t.me/{ADMIN_USERNAME}"),
                     InlineKeyboardButton("📋 القوانين", callback_data="btn_rules")
                 ]
             ])
@@ -484,20 +484,18 @@ def main():
     application = Application.builder().token(TOKEN).build()
     bot_instance = SmartRidesBot()
 
-    application.add_handler(CommandHandler("start", lambda u, c: u.message.reply_text(f"🚘 أهلاً بك في {GROUP_NAME}\nالبوت يعمل بكفاءة والترحيب التلقائي مفعل.")))
+    application.add_handler(CommandHandler("start", lambda u, c: u.message.reply_text(f"🚘 أهلاً بك في {GROUP_NAME}\nالبوت يعمل بكفاءة عالية.")))
     application.add_handler(CommandHandler("rules", lambda u, c: u.message.reply_text(RULES_TEXT, parse_mode=ParseMode.HTML)))
     
-    # معالجة انضمام أعضاء جدد
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_instance.handle_new_member))
     
-    # معالجة الأزرار التفاعلية
     application.add_handler(CallbackQueryHandler(bot_instance.handle_take_trip, pattern=r"^take_trip:"))
     application.add_handler(CallbackQueryHandler(bot_instance.close_trip, pattern=r"^close_trip:"))
     application.add_handler(CallbackQueryHandler(bot_instance.handle_callback_buttons, pattern=r"^btn_"))
     
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot_instance.handle_message))
 
-    print("✅ تم تشغيل بوت مشاوير جدة بنجاح مع الترحيب والأزرار وحظر الروابط...")
+    print("✅ تم تشغيل بوت مشاوير جدة بنجاح مع زر الشكاوي...")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
