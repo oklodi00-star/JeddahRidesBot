@@ -1,5 +1,5 @@
 """
-🤖 بوت مشاوير جدة الذكي - مع رسالة الترحيب، زر الشكاوي، وحظر الروابط
+🤖 بوت مشاوير جدة الذكي - مسموح برسالة تواجد واحدة ثم تنبيه/تجاهل للتكرار
 """
 
 import os
@@ -202,7 +202,8 @@ class Database:
         cur.execute("INSERT INTO user_memory (user_id, message_text) VALUES (?, ?)", (user_id, text))
         self.conn.commit()
 
-    def is_spam(self, user_id, text, within_seconds=30):
+    def is_spam(self, user_id, text, within_seconds=300):
+        # منع تكرار نفس الرسالة لفترة معينة (مثال: 5 دقائق لتجنب الإزعاج المتكرر)
         cutoff = datetime.now() - timedelta(seconds=within_seconds)
         cur = self.conn.cursor()
         cur.execute("SELECT COUNT(*) as cnt FROM anti_spam WHERE user_id = ? AND message_text = ? AND timestamp > ?",
@@ -281,7 +282,6 @@ class SmartRidesBot:
         return "موقع البداية", "الوجهة المطلوبة"
 
     async def handle_new_member(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """ترحيب تلقائي بالأعضاء الجدد مع زر الشكاوي والقوانين"""
         for member in update.message.new_chat_members:
             if member.is_bot:
                 continue
@@ -304,7 +304,6 @@ class SmartRidesBot:
             )
 
     async def handle_callback_buttons(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """معالجة نقرات الأزرار للترحيب والقوانين"""
         query = update.callback_query
         data = query.data
 
@@ -352,13 +351,24 @@ class SmartRidesBot:
         if not text:
             return
 
+        norm = self.normalize_text(text).strip()
+
+        # فحص التكرار (مسموح بالمرة الأولى، وإذا تكررت خلال الفترة المحددة يتم تنبيهه أو تجاهلها)
+        if any(w in norm for w in PRESENCE_WORDS):
+            if self.db.is_spam(user.id, norm):
+                warning_msg = await message.reply_text(f"⚠️ تنبيه يا {user.first_name}، لقد أرسلت حالة تواجدك مسبقاً. يرجى عدم تكرار نفس الرسالة باستمرار.")
+                context.job_queue.run_once(lambda ctx: ctx.bot.delete_message(chat_id=message.chat_id, message_id=warning_msg.message_id), 6)
+                return
+            
+            self.db.add_spam_record(user.id, norm)
+            self.db.set_role(user.id, "driver")
+            await message.reply_text("✅ تم تسجيل تواجدك.")
+            return
+
         if self.db.is_spam(user.id, text):
             return
         self.db.add_spam_record(user.id, text)
         self.db.add_memory(user.id, text)
-
-        role = self.db.get_role(user.id)
-        norm = self.normalize_text(text).strip()
 
         if self.looks_like_trip(text):
             await self.handle_trip(update, context, text)
@@ -366,19 +376,12 @@ class SmartRidesBot:
 
         if norm in ["انا كابتن", "كابتن", "سايق", "سواق"]:
             self.db.set_role(user.id, "driver")
-            await message.reply_text("✅ تم تسجيلك ككابتن بنجاح!\n📍 أرسل موقعك الحالي الآن لإعلان التواجد.")
+            await message.reply_text("✅ تم تسجيلك ككابتن بنجاح!")
             return
 
         if norm in ["انا عميل", "عميل", "زبون"]:
             self.db.set_role(user.id, "customer")
             await message.reply_text("✅ تم تسجيلك كعميل بنجاح!\nيمكنك الآن إرسال تفاصيل مشوارك.")
-            return
-
-        if any(w in norm for w in PRESENCE_WORDS):
-            if role == "driver":
-                await message.reply_text("📍 تم تسجيل تواجدك في النظام بنجاح وجاهزيتك للمشاوير.")
-            else:
-                await message.reply_text("📝 يرجى التسجيل ككابتن أولاً عبر كتابة: (أنا كابتن).")
             return
 
         if any(g == norm or norm.startswith(g + " ") for g in GREETINGS):
@@ -495,7 +498,7 @@ def main():
     
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot_instance.handle_message))
 
-    print("✅ تم تشغيل بوت مشاوير جدة بنجاح مع زر الشكاوي...")
+    print("✅ تم تشغيل بوت مشاوير جدة بنجاح وتفعيل نظام التواحد لمرة واحدة ثم التحذير...")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
