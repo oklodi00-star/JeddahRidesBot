@@ -1,5 +1,5 @@
 """
-🤖 بوت مشاوير جدة الذكي - مسموح برسالة تواجد واحدة ثم تنبيه/تجاهل للتكرار
+🤖 بوت مشاوير جدة الذكي - التحديث النهائي لتسجيل التواجد ومنع التكرار
 """
 
 import os
@@ -72,7 +72,7 @@ PRESENCE_WORDS = [
 ]
 
 LOCATIONS = [
-    "الفضيلة", "الرغامة", "جدة", "مكة", "الرياض", "الدمام", "المدينة",
+    "الفضيلة", "الرغامة", "الخمرة", "جدة", "مكة", "الرياض", "الدمام", "المدينة",
     "الطائف", "البلد", "البغدادية", "الروضة", "الصفا", "المروة", "النسيم",
     "السليمانية", "العزيزية", "الفيحاء", "الجامعة", "الحمراء", "الاندلس",
     "الأندلس", "الربوة", "النزهة", "المشرفة", "بني مالك", "الحمدانية",
@@ -202,8 +202,8 @@ class Database:
         cur.execute("INSERT INTO user_memory (user_id, message_text) VALUES (?, ?)", (user_id, text))
         self.conn.commit()
 
-    def is_spam(self, user_id, text, within_seconds=300):
-        # منع تكرار نفس الرسالة لفترة معينة (مثال: 5 دقائق لتجنب الإزعاج المتكرر)
+    def is_presence_spam(self, user_id, text, within_seconds=300):
+        # التحقق مما إذا كان الكابتن قد أرسل نفس رسالة التواجد خلال آخر 5 دقائق
         cutoff = datetime.now() - timedelta(seconds=within_seconds)
         cur = self.conn.cursor()
         cur.execute("SELECT COUNT(*) as cnt FROM anti_spam WHERE user_id = ? AND message_text = ? AND timestamp > ?",
@@ -214,6 +214,13 @@ class Database:
         cur = self.conn.cursor()
         cur.execute("INSERT INTO anti_spam (user_id, message_text) VALUES (?, ?)", (user_id, text))
         self.conn.commit()
+
+    def is_general_spam(self, user_id, text, within_seconds=30):
+        cutoff = datetime.now() - timedelta(seconds=within_seconds)
+        cur = self.conn.cursor()
+        cur.execute("SELECT COUNT(*) as cnt FROM anti_spam WHERE user_id = ? AND message_text = ? AND timestamp > ?",
+                    (user_id, text, cutoff))
+        return cur.fetchone()["cnt"] > 0
 
 # ============================================================
 # 🤖 آليات المعالجة والذكاء
@@ -353,10 +360,10 @@ class SmartRidesBot:
 
         norm = self.normalize_text(text).strip()
 
-        # فحص التكرار (مسموح بالمرة الأولى، وإذا تكررت خلال الفترة المحددة يتم تنبيهه أو تجاهلها)
+        # فحص رسائل التواجد (مسموح مرة واحدة، وعند التكرار يتم إعطاء تنبيه وعدم التكرار في الردود)
         if any(w in norm for w in PRESENCE_WORDS):
-            if self.db.is_spam(user.id, norm):
-                warning_msg = await message.reply_text(f"⚠️ تنبيه يا {user.first_name}، لقد أرسلت حالة تواجدك مسبقاً. يرجى عدم تكرار نفس الرسالة باستمرار.")
+            if self.db.is_presence_spam(user.id, norm):
+                warning_msg = await message.reply_text(f"⚠️ تنبيه يا {user.first_name}، لقد أرسلت حالة تواجدك مسبقاً. يُسمح بإرسال التواجد مرة واحدة فقط.")
                 context.job_queue.run_once(lambda ctx: ctx.bot.delete_message(chat_id=message.chat_id, message_id=warning_msg.message_id), 6)
                 return
             
@@ -365,7 +372,7 @@ class SmartRidesBot:
             await message.reply_text("✅ تم تسجيل تواجدك.")
             return
 
-        if self.db.is_spam(user.id, text):
+        if self.db.is_general_spam(user.id, text):
             return
         self.db.add_spam_record(user.id, text)
         self.db.add_memory(user.id, text)
@@ -498,7 +505,7 @@ def main():
     
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot_instance.handle_message))
 
-    print("✅ تم تشغيل بوت مشاوير جدة بنجاح وتفعيل نظام التواحد لمرة واحدة ثم التحذير...")
+    print("✅ تم تشغيل بوت مشاوير جدة بنجاح وتفعيل القواعد الجديدة للتواجد...")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
