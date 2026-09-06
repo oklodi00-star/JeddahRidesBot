@@ -1,15 +1,3 @@
-"""
-🤖 بوت مشاوير جدة الذكي
-- العميل يرسل طلبه مباشرة بدون تسجيل مسبق
-- الكابتن يضغط جاهز مباشرة بدون تسجيل مسبق
-- زر التواصل يفتح الخاص مباشرة بين العميل والكابتن
-- منع كلمة "خاص"
-- منع أرقام الجوال
-- 3 مخالفات = كتم 24 ساعة
-- تسجيل تواجد الكابتن مرة واحدة يومياً
-- تكرار التواجد = مخالفة
-"""
-
 import os
 import re
 import logging
@@ -36,12 +24,19 @@ from telegram.ext import (
     filters,
 )
 
+# تفعيل التسجيل
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
 # ============================================================
 # ⚙️ الإعدادات
 # ============================================================
 
-TOKEN = os.getenv("BOT_TOKEN", "").strip()
+# تم وضع التوكن المباشر هنا بناءً على طلبك
+TOKEN = "8881485708:AAEwXxB_8JUChKlugbFeh5vYi65LwhGkljo"
 
 GROUP_ID = -1001234567890
 GROUP_NAME = "🚘 مشاوير جدة وضواحيها"
@@ -1132,7 +1127,6 @@ class SmartRidesBot:
                 e
             )
 
-        # 3 مخالفات = كتم 24 ساعة
         if count >= 3:
 
             try:
@@ -1237,7 +1231,6 @@ class SmartRidesBot:
             user
         )
 
-        # التواجد يعني أنه كابتن
         self.db.set_role(
             user.id,
             "driver"
@@ -1297,7 +1290,6 @@ class SmartRidesBot:
             user
         )
 
-        # العميل يسجل تلقائياً
         self.db.set_role(
             user.id,
             "customer"
@@ -1413,7 +1405,6 @@ class SmartRidesBot:
 
             return
 
-        # العميل لا يستطيع أخذ مشواره
         if user.id == trip["customer_id"]:
 
             await query.answer(
@@ -1427,7 +1418,6 @@ class SmartRidesBot:
             user
         )
 
-        # يسجل كابتن تلقائياً
         self.db.set_role(
             user.id,
             "driver"
@@ -1452,10 +1442,6 @@ class SmartRidesBot:
             "✅ تم تسجيل جاهزيتك.",
             show_alert=True
         )
-
-        # ====================================================
-        # 🔗 رابط الخاص المباشر مع العميل
-        # ====================================================
 
         customer_private_url = (
             f"tg://user?id={trip['customer_id']}"
@@ -1483,10 +1469,6 @@ class SmartRidesBot:
             parse_mode=ParseMode.HTML,
             reply_markup=driver_keyboard
         )
-
-        # ====================================================
-        # 🔗 رابط الخاص المباشر مع الكابتن
-        # ====================================================
 
         driver_private_url = (
             f"tg://user?id={user.id}"
@@ -1673,10 +1655,6 @@ class SmartRidesBot:
 
         user = query.from_user
 
-        # ----------------------------------------------------
-        # عميل
-        # ----------------------------------------------------
-
         if data.startswith(
             "btn_customer:"
         ):
@@ -1709,10 +1687,6 @@ class SmartRidesBot:
             )
 
             return
-
-        # ----------------------------------------------------
-        # كابتن
-        # ----------------------------------------------------
 
         if data.startswith(
             "btn_driver:"
@@ -1747,10 +1721,6 @@ class SmartRidesBot:
 
             return
 
-        # ----------------------------------------------------
-        # الشكاوي
-        # ----------------------------------------------------
-
         if data == "btn_complaints":
 
             await query.answer()
@@ -1779,7 +1749,6 @@ class SmartRidesBot:
         if not message or not user or not chat:
             return
 
-        # فقط القروب
         if chat.id != GROUP_ID:
             return
 
@@ -1801,10 +1770,6 @@ class SmartRidesBot:
         ):
             return
 
-        # ====================================================
-        # 📱 رقم جوال
-        # ====================================================
-
         if self.contains_phone_number(
             text
         ):
@@ -1816,10 +1781,6 @@ class SmartRidesBot:
             )
 
             return
-
-        # ====================================================
-        # 🔒 كلمة خاص
-        # ====================================================
 
         if self.contains_private_word(
             text
@@ -1833,10 +1794,6 @@ class SmartRidesBot:
 
             return
 
-        # ====================================================
-        # 🔗 روابط
-        # ====================================================
-
         if self.contains_unauthorized_link(
             text
         ):
@@ -1848,10 +1805,6 @@ class SmartRidesBot:
             )
 
             return
-
-        # ====================================================
-        # 📍 التواجد
-        # ====================================================
 
         location = self.detect_presence(
             text
@@ -1866,10 +1819,6 @@ class SmartRidesBot:
             )
 
             return
-
-        # ====================================================
-        # 🚘 المشوار
-        # ====================================================
 
         trip_type, pickup, destination = (
             self.detect_trip(text)
@@ -1886,10 +1835,6 @@ class SmartRidesBot:
             )
 
             return
-
-        # ====================================================
-        # 👋 التحية
-        # ====================================================
 
         normalized = self.normalize_text(
             text
@@ -1917,13 +1862,6 @@ class SmartRidesBot:
 
                 return
 
-        # ====================================================
-        # لا تزعج القروب برسائل فهمتها البوت
-        # ====================================================
-
-        # لا يرد البوت على كل رسالة عشوائية
-        # حتى لا يصبح القروب مليئاً بردود البوت.
-
 
 # ============================================================
 # 🚀 التشغيل
@@ -1945,20 +1883,12 @@ def main():
         .build()
     )
 
-    # --------------------------------------------------------
-    # /start
-    # --------------------------------------------------------
-
     application.add_handler(
         CommandHandler(
             "start",
             start_command
         )
     )
-
-    # --------------------------------------------------------
-    # الأعضاء الجدد
-    # --------------------------------------------------------
 
     application.add_handler(
         MessageHandler(
@@ -1967,20 +1897,12 @@ def main():
         )
     )
 
-    # --------------------------------------------------------
-    # زر جاهز
-    # --------------------------------------------------------
-
     application.add_handler(
         CallbackQueryHandler(
             bot.handle_take_trip,
             pattern=r"^take_trip:"
         )
     )
-
-    # --------------------------------------------------------
-    # زر التواصل مع الكابتن
-    # --------------------------------------------------------
 
     application.add_handler(
         CallbackQueryHandler(
@@ -1989,10 +1911,6 @@ def main():
         )
     )
 
-    # --------------------------------------------------------
-    # إغلاق المشوار
-    # --------------------------------------------------------
-
     application.add_handler(
         CallbackQueryHandler(
             bot.handle_close_trip,
@@ -2000,20 +1918,12 @@ def main():
         )
     )
 
-    # --------------------------------------------------------
-    # أزرار الترحيب
-    # --------------------------------------------------------
-
     application.add_handler(
         CallbackQueryHandler(
             bot.handle_callback_buttons,
             pattern=r"^btn_"
         )
     )
-
-    # --------------------------------------------------------
-    # الرسائل
-    # --------------------------------------------------------
 
     application.add_handler(
         MessageHandler(
@@ -2045,6 +1955,7 @@ async def start_command(
 
     if user:
 
+        db = Database()
         db.save_user(
             user
         )
