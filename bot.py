@@ -10,6 +10,7 @@
 - 3 مخالفات = كتم 24 ساعة
 - تسجيل تواجد الكابتن مرة واحدة يومياً
 - تكرار التواجد = مخالفة
+- أمر /chatid لمعرفة آيدي القروب الحقيقي
 """
 
 import os
@@ -55,6 +56,8 @@ TOKEN = os.getenv("BOT_TOKEN", "").strip()
 
 # ============================================================
 # ⚠️ آيدي القروب
+#
+# سيتم التأكد منه عن طريق /chatid
 # ============================================================
 
 GROUP_ID = -1003716441020
@@ -296,7 +299,6 @@ class Database:
 
         cur = self.conn.cursor()
 
-
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY,
@@ -306,7 +308,6 @@ class Database:
                 registration_date TEXT
             )
         """)
-
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS trips (
@@ -323,7 +324,6 @@ class Database:
             )
         """)
 
-
         cur.execute("""
             CREATE TABLE IF NOT EXISTS ready_drivers (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -335,7 +335,6 @@ class Database:
             )
         """)
 
-
         cur.execute("""
             CREATE TABLE IF NOT EXISTS violations (
                 user_id INTEGER PRIMARY KEY,
@@ -345,7 +344,6 @@ class Database:
             )
         """)
 
-
         cur.execute("""
             CREATE TABLE IF NOT EXISTS banned_users (
                 user_id INTEGER PRIMARY KEY,
@@ -353,7 +351,6 @@ class Database:
                 created_at TEXT
             )
         """)
-
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS presence (
@@ -363,7 +360,6 @@ class Database:
                 updated_at TEXT
             )
         """)
-
 
         self.conn.commit()
 
@@ -1360,7 +1356,6 @@ class SmartRidesBot:
             return
 
 
-        # زر العميل لا يسمح باستخدامه إلا صاحب الطلب
         if query.from_user.id != trip["customer_id"]:
 
             await query.answer(
@@ -1552,177 +1547,51 @@ class SmartRidesBot:
 
 
 # ============================================================
-# 📩 استقبال رسائل القروب
+# 📌 أمر معرفة آيدي القروب
 # ============================================================
 
-    async def handle_message(
-        self,
-        update,
-        context
-    ):
+async def chat_id_command(
+    update,
+    context
+):
 
-        message = update.effective_message
+    chat = update.effective_chat
+    user = update.effective_user
 
-        user = update.effective_user
+    if not chat:
+        return
 
-        chat = update.effective_chat
+    logger.info(
+        f"🔎 CHATID COMMAND | "
+        f"ID={chat.id} | "
+        f"TYPE={chat.type} | "
+        f"TITLE={chat.title}"
+    )
 
-
-        if not message or not user or not chat:
-
-            return
-
-
-        # ====================================================
-        # 🔎 تسجيل معلومات القروب في Logs
-        # ====================================================
-
-        logger.info(
-            f"📌 CHAT ID: {chat.id} | "
-            f"TYPE: {chat.type} | "
-            f"TITLE: {chat.title}"
-        )
-
-
-        # ====================================================
-        # تحقق من القروب
-        # ====================================================
-
-        if chat.id != GROUP_ID:
-
-            logger.warning(
-                f"⚠️ رسالة من قروب غير معتمد: {chat.id}"
-            )
-
-            return
-
+    if chat.type in ["group", "supergroup"]:
 
         text = (
-            message.text
-            or
-            message.caption
-            or
-            ""
+            "📌 <b>بيانات القروب</b>\n\n"
+            f"🆔 Chat ID:\n"
+            f"<code>{chat.id}</code>\n\n"
+            f"📋 النوع: <code>{chat.type}</code>\n"
+            f"🏷 الاسم: {chat.title or 'بدون اسم'}\n\n"
+            "✅ أرسل لي هذا الرقم لأضعه لك في الكود."
         )
 
+    else:
 
-        if not text.strip():
-
-            return
-
-
-        self.db.save_user(user)
-
-
-        if self.db.is_banned(user.id):
-
-            return
-
-
-        # ====================================================
-        # 📱 منع أرقام الجوال
-        # ====================================================
-
-        if self.contains_phone_number(text):
-
-            await self.issue_violation(
-                update,
-                context,
-                "نشر رقم جوال داخل القروب ممنوع"
-            )
-
-            return
-
-
-        # ====================================================
-        # 🚫 منع كلمة خاص
-        # ====================================================
-
-        if self.contains_private_word(text):
-
-            await self.issue_violation(
-                update,
-                context,
-                "كتابة كلمة «خاص» داخل القروب ممنوعة"
-            )
-
-            return
-
-
-        # ====================================================
-        # 🔗 منع الروابط
-        # ====================================================
-
-        if self.contains_unauthorized_link(text):
-
-            await self.issue_violation(
-                update,
-                context,
-                "نشر الروابط أو الإعلانات الخارجية ممنوع"
-            )
-
-            return
-
-
-        # ====================================================
-        # 📍 التواجد
-        # ====================================================
-
-        location = self.detect_presence(text)
-
-
-        if location:
-
-            await self.handle_presence(
-                update,
-                context,
-                location
-            )
-
-            return
-
-
-        # ====================================================
-        # 🚘 طلب مشوار
-        # ====================================================
-
-        trip_type, pickup, destination = (
-            self.detect_trip(text)
+        text = (
+            "📌 <b>بيانات المحادثة</b>\n\n"
+            f"🆔 Chat ID:\n"
+            f"<code>{chat.id}</code>\n\n"
+            f"📋 النوع: <code>{chat.type}</code>"
         )
 
-
-        if trip_type:
-
-            await self.handle_trip(
-                update,
-                context,
-                trip_type,
-                pickup,
-                destination
-            )
-
-            return
-
-
-        # ====================================================
-        # 👋 التحية
-        # ====================================================
-
-        normalized = self.normalize_text(
-            text
-        ).strip()
-
-
-        for greeting in GREETINGS:
-
-            if normalized == self.normalize_text(greeting):
-
-                await message.reply_text(
-                    "وعليكم السلام ورحمة الله وبركاته 🌹\n"
-                    "حياك الله في مشاوير جدة 🚘"
-                )
-
-                return
+    await update.effective_message.reply_text(
+        text,
+        parse_mode=ParseMode.HTML
+    )
 
 
 # ============================================================
@@ -1736,13 +1605,11 @@ async def start_command(
 
     user = update.effective_user
 
-
     if user:
 
         db_instance = Database()
 
         db_instance.save_user(user)
-
 
     if update.message:
 
@@ -1750,9 +1617,180 @@ async def start_command(
             "🚘 <b>مشاوير جدة وضواحيها</b>\n\n"
             "أهلاً بك 👋\n\n"
             "👤 العميل: اكتب طلبك مباشرة في القروب.\n"
-            "🚕 الكابتن: اضغط جاهز.",
+            "🚕 الكابتن: اضغط جاهز.\n\n"
+            "📌 لمعرفة آيدي القروب استخدم /chatid",
             parse_mode=ParseMode.HTML
         )
+
+
+# ============================================================
+# ❌ معالجة الأخطاء
+# ============================================================
+
+async def error_handler(
+    update,
+    context
+):
+
+    logger.error(
+        "❌ حدث خطأ أثناء معالجة Update:",
+        exc_info=context.error
+    )
+
+
+# ============================================================
+# 📩 استقبال رسائل القروب
+# ============================================================
+
+async def handle_message(
+    update,
+    context
+):
+
+    message = update.effective_message
+    user = update.effective_user
+    chat = update.effective_chat
+
+    if not message or not user or not chat:
+        return
+
+    # ========================================================
+    # 🔎 تسجيل كل رسالة في Logs
+    # ========================================================
+
+    logger.info(
+        f"🔥 وصلت رسالة | "
+        f"CHAT_ID={chat.id} | "
+        f"TYPE={chat.type} | "
+        f"TITLE={chat.title} | "
+        f"USER={user.id} | "
+        f"TEXT={message.text or message.caption or ''}"
+    )
+
+    # ========================================================
+    # تحقق من القروب
+    # ========================================================
+
+    if chat.id != GROUP_ID:
+
+        logger.warning(
+            f"⚠️ رسالة من قروب غير معتمد: {chat.id}"
+        )
+
+        return
+
+    text = (
+        message.text
+        or
+        message.caption
+        or
+        ""
+    )
+
+    if not text.strip():
+        return
+
+    bot_instance.db.save_user(user)
+
+    if bot_instance.db.is_banned(user.id):
+        return
+
+    # ========================================================
+    # 📱 منع أرقام الجوال
+    # ========================================================
+
+    if bot_instance.contains_phone_number(text):
+
+        await bot_instance.issue_violation(
+            update,
+            context,
+            "نشر رقم جوال داخل القروب ممنوع"
+        )
+
+        return
+
+    # ========================================================
+    # 🚫 منع كلمة خاص
+    # ========================================================
+
+    if bot_instance.contains_private_word(text):
+
+        await bot_instance.issue_violation(
+            update,
+            context,
+            "كتابة كلمة «خاص» داخل القروب ممنوعة"
+        )
+
+        return
+
+    # ========================================================
+    # 🔗 منع الروابط
+    # ========================================================
+
+    if bot_instance.contains_unauthorized_link(text):
+
+        await bot_instance.issue_violation(
+            update,
+            context,
+            "نشر الروابط أو الإعلانات الخارجية ممنوع"
+        )
+
+        return
+
+    # ========================================================
+    # 📍 التواجد
+    # ========================================================
+
+    location = bot_instance.detect_presence(text)
+
+    if location:
+
+        await bot_instance.handle_presence(
+            update,
+            context,
+            location
+        )
+
+        return
+
+    # ========================================================
+    # 🚘 طلب مشوار
+    # ========================================================
+
+    trip_type, pickup, destination = (
+        bot_instance.detect_trip(text)
+    )
+
+    if trip_type:
+
+        await bot_instance.handle_trip(
+            update,
+            context,
+            trip_type,
+            pickup,
+            destination
+        )
+
+        return
+
+    # ========================================================
+    # 👋 التحية
+    # ========================================================
+
+    normalized = bot_instance.normalize_text(
+        text
+    ).strip()
+
+    for greeting in GREETINGS:
+
+        if normalized == bot_instance.normalize_text(greeting):
+
+            await message.reply_text(
+                "وعليكم السلام ورحمة الله وبركاته 🌹\n"
+                "حياك الله في مشاوير جدة 🚘"
+            )
+
+            return
 
 
 # ============================================================
@@ -1768,9 +1806,9 @@ def main():
             "في متغيرات البيئة."
         )
 
+    global bot_instance
 
     bot_instance = SmartRidesBot()
-
 
     application = (
         Application
@@ -1779,6 +1817,9 @@ def main():
         .build()
     )
 
+    # ========================================================
+    # 📌 /start
+    # ========================================================
 
     application.add_handler(
         CommandHandler(
@@ -1787,6 +1828,23 @@ def main():
         )
     )
 
+    # ========================================================
+    # 📌 /chatid
+    #
+    # هذا الأمر قبل فلتر GROUP_ID
+    # حتى يعمل حتى لو كان GROUP_ID خطأ
+    # ========================================================
+
+    application.add_handler(
+        CommandHandler(
+            "chatid",
+            chat_id_command
+        )
+    )
+
+    # ========================================================
+    # 👤 أعضاء جدد
+    # ========================================================
 
     application.add_handler(
         MessageHandler(
@@ -1795,6 +1853,9 @@ def main():
         )
     )
 
+    # ========================================================
+    # 🚕 جاهز
+    # ========================================================
 
     application.add_handler(
         CallbackQueryHandler(
@@ -1803,6 +1864,9 @@ def main():
         )
     )
 
+    # ========================================================
+    # 📩 تواصل مع الكابتن
+    # ========================================================
 
     application.add_handler(
         CallbackQueryHandler(
@@ -1811,6 +1875,9 @@ def main():
         )
     )
 
+    # ========================================================
+    # ✅ إغلاق المشوار
+    # ========================================================
 
     application.add_handler(
         CallbackQueryHandler(
@@ -1819,6 +1886,9 @@ def main():
         )
     )
 
+    # ========================================================
+    # 🔘 الأزرار
+    # ========================================================
 
     application.add_handler(
         CallbackQueryHandler(
@@ -1827,31 +1897,44 @@ def main():
         )
     )
 
+    # ========================================================
+    # 📩 رسائل القروب
+    # ========================================================
 
     application.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
-            bot_instance.handle_message
+            handle_message
         )
     )
 
+    # ========================================================
+    # ❌ الأخطاء
+    # ========================================================
 
-    logger.info(
-        "=================================================="
-    )
-
-    logger.info(
-        "✅ تم تشغيل بوت مشاوير جدة بنجاح."
-    )
-
-    logger.info(
-        f"📌 GROUP_ID = {GROUP_ID}"
+    application.add_error_handler(
+        error_handler
     )
 
     logger.info(
         "=================================================="
     )
 
+    logger.info(
+        "🚀 تشغيل بوت مشاوير جدة..."
+    )
+
+    logger.info(
+        f"📌 GROUP_ID الحالي = {GROUP_ID}"
+    )
+
+    logger.info(
+        "📌 استخدم /chatid داخل القروب لمعرفة الآيدي الحقيقي"
+    )
+
+    logger.info(
+        "=================================================="
+    )
 
     application.run_polling(
         allowed_updates=Update.ALL_TYPES,
