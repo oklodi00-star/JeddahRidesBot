@@ -14,6 +14,7 @@
 - أمر /mybots لعرض حالة البوت
 - ✅ يفهم السياق الكامل (التحية + الطلب في رسالة واحدة)
 - ✅ يسأل عن المواقع الناقصة ويكمل الطلب
+- ✅ ترحيب تلقائي بدون حذف (handler مزدوج)
 """
 
 import os
@@ -38,6 +39,7 @@ from telegram.ext import (
     CommandHandler,
     MessageHandler,
     CallbackQueryHandler,
+    ChatMemberHandler,
     ContextTypes,
     filters,
 )
@@ -399,7 +401,7 @@ class SmartRidesBot:
 
     def __init__(self):
         self.db = Database()
-        # ✅ ذاكرة الطلبات المعلقة {user_id: {"type":..., "pickup":..., "destination":...}}
+        # ✅ ذاكرة الطلبات المعلقة
         self.pending_trips = {}
 
     # --------------------------------------------------------
@@ -429,7 +431,6 @@ class SmartRidesBot:
         if not text:
             return ""
         cleaned = text
-        # نرتب من الأطول للأقصر عشان ما يقطع كلمة أقصر جزء من أطول
         for g in sorted(GREETINGS, key=len, reverse=True):
             cleaned = re.sub(re.escape(g), " ", cleaned, flags=re.IGNORECASE)
         return re.sub(r"\s+", " ", cleaned).strip()
@@ -465,16 +466,13 @@ class SmartRidesBot:
         return False
 
     def extract_route(self, text):
-        """يستخرج المسار من صيغة (من ... إلى ...)"""
         if not text:
             return None, None
         normalized = self.normalize_text(text)
-        # ✅ نمط مرن: "من X إلى Y" مع دعم "الي" و"الى"
         match = re.search(r"من\s+(.+?)\s+(?:الى|الي|إلى|ل)\s+(.+)", normalized)
         if match:
             return match.group(1).strip(), match.group(2).strip()
 
-        # بديل: لقط المواقع المعروفة بالترتيب
         found = []
         for location in LOCATIONS:
             normalized_location = self.normalize_text(location)
@@ -485,23 +483,18 @@ class SmartRidesBot:
         return None, None
 
     def detect_trip(self, text):
-        """يكشف نية طلب المشوار حتى بدون مواقع كاملة"""
-        # ✅ نشيل التحية أول
         clean_text = self.strip_greetings(text)
         normalized = self.normalize_text(clean_text)
 
         pickup, destination = self.extract_route(clean_text)
 
-        # ✅ هل في نية طلب مشوار؟
         has_intent = any(
             self.normalize_text(w) in normalized
             for w in NORMAL_TRIP_WORDS + MONTHLY_TRIP_WORDS
         )
 
-        # ✅ هل في مسار واضح؟
         has_route = bool(pickup and destination)
 
-        # ما في نية ولا مسار -> مو مشوار
         if not has_intent and not has_route:
             return None, None, None
 
@@ -511,7 +504,6 @@ class SmartRidesBot:
         )
         trip_type = "monthly" if monthly else "normal"
 
-        # ✅ نرجع حتى لو ناقص
         return trip_type, pickup, destination
 
     def detect_presence(self, text):
@@ -605,39 +597,81 @@ class SmartRidesBot:
                 logger.error(f"خطأ في كتم العضو: {e}")
 
     # --------------------------------------------------------
-    # 👋 استقبال الأعضاء الجدد
+    # 👋 ترحيب الأعضاء الجدد
     # --------------------------------------------------------
 
+    async def _send_welcome(self, context, member):
+        """دالة موحدة لإرسال الترحيب بدون حذف"""
+        logger.info(f"✅ إرسال ترحيب للعضو: {member.id} - {member.first_name}")
+
+        try:
+            self.db.save_user(member)
+        except Exception as e:
+            logger.error(f"⚠️ فشل حفظ المستخدم: {e}")
+
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("👤 أنا عميل", callback_data=f"btn_customer:{member.id}"),
+                InlineKeyboardButton("🚕 أنا كابتن", callback_data=f"btn_driver:{member.id}")
+            ],
+            [
+                InlineKeyboardButton("⚠️ الشكاوي", callback_data="btn_complaints")
+            ]
+        ])
+
+        try:
+            sent = await context.bot.send_message(
+                chat_id=GROUP_ID,
+                text=WELCOME_TEXT,
+                parse_mode=ParseMode.HTML,
+                reply_markup=keyboard
+            )
+            logger.info(f"✅ تم إرسال الترحيب | msg_id={sent.message_id}")
+        except Exception as e:
+            logger.error(f"❌ فشل إرسال الترحيب: {e}", exc_info=True)
+
     async def handle_new_member(self, update, context):
+        """Handler أساسي — NEW_CHAT_MEMBERS"""
         message = update.effective_message
         if not message:
             return
 
+        logger.info(
+            f"👋 NEW_CHAT_MEMBERS | CHAT={message.chat_id} | "
+            f"EXPECTED={GROUP_ID} | MEMBERS={[m.id for m in message.new_chat_members]}"
+        )
+
         if message.chat_id != GROUP_ID:
+            logger.warning(f"⚠️ قروب غير مطابق: {message.chat_id}")
             return
 
         for member in message.new_chat_members:
             if member.is_bot:
                 continue
-            self.db.save_user(member)
+            await self._send_welcome(context, member)
 
-            keyboard = InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton("👤 أنا عميل", callback_data=f"btn_customer:{member.id}"),
-                    InlineKeyboardButton("🚕 أنا كابتن", callback_data=f"btn_driver:{member.id}")
-                ],
-                [
-                    InlineKeyboardButton("⚠️ الشكاوي", callback_data="btn_complaints")
-                ]
-            ])
+    async def handle_chat_member(self, update, context):
+        """Handler احتياطي — CHAT_MEMBER (لبعض القروبات)"""
+        cm = update.chat_member
+        if not cm:
+            return
 
-            welcome = await message.reply_text(
-                WELCOME_TEXT,
-                parse_mode=ParseMode.HTML,
-                reply_markup=keyboard
-            )
-            if context.job_queue:
-                context.job_queue.run_once(self.delete_later, 60, data=welcome)
+        logger.info(
+            f"👋 CHAT_MEMBER | CHAT={cm.chat.id} | "
+            f"OLD={cm.old_chat_member.status} | NEW={cm.new_chat_member.status}"
+        )
+
+        if cm.chat.id != GROUP_ID:
+            return
+
+        old_status = cm.old_chat_member.status
+        new_status = cm.new_chat_member.status
+
+        if old_status in ("left", "kicked") and new_status in ("member", "restricted"):
+            user = cm.new_chat_member.user
+            if user.is_bot:
+                return
+            await self._send_welcome(context, user)
 
     # --------------------------------------------------------
     # 📍 تسجيل التواجد
@@ -656,14 +690,12 @@ class SmartRidesBot:
 
         self.db.save_presence(user.id, location)
 
-        card = await message.reply_text(
+        await message.reply_text(
             f"📍 <b>تم تسجيل تواجدك</b>\n\n"
             f"🚕 الكابتن: {self.html(user.first_name)}\n"
             f"📍 الموقع: {self.html(location)}",
             parse_mode=ParseMode.HTML
         )
-        if context.job_queue:
-            context.job_queue.run_once(self.delete_later, 20, data=card)
 
     # --------------------------------------------------------
     # 🚗 تسجيل مشوار جديد
@@ -676,7 +708,6 @@ class SmartRidesBot:
         self.db.save_user(user)
         self.db.set_role(user.id, "customer")
 
-        # ❗ لو ناقص موقع -> احفظ الطلب واسأل
         if not pickup or not destination:
             self.pending_trips[user.id] = {
                 "type": trip_type,
@@ -694,7 +725,6 @@ class SmartRidesBot:
             await message.reply_text(question, parse_mode=ParseMode.HTML)
             return
 
-        # ✅ المواقع كاملة -> أنشئ المشوار
         trip_id = self.db.create_trip(
             message_id=message.message_id,
             customer_id=user.id,
@@ -882,7 +912,7 @@ async def chat_id_command(update, context):
         return
 
     logger.info(
-        f"🔎 CHATID COMMAND | ID={chat.id} | TYPE={chat.type} | TITLE={chat.title}"
+        f"🔎 CHATID | ID={chat.id} | TYPE={chat.type} | TITLE={chat.title}"
     )
 
     if chat.type in ["group", "supergroup"]:
@@ -912,16 +942,24 @@ async def start_command(update, context):
     if user:
         bot_instance.db.save_user(user)
 
-    if update.message:
-        await update.message.reply_text(
-            "🚘 <b>مشاوير جدة وضواحيها</b>\n\n"
-            "أهلاً بك 👋\n\n"
-            "👤 العميل: اكتب طلبك مباشرة في القروب.\n"
-            "🚕 الكابتن: اضغط جاهز.\n\n"
-            "📌 لمعرفة آيدي القروب استخدم /chatid\n"
-            "🤖 لعرض حالة البوت استخدم /mybots",
-            parse_mode=ParseMode.HTML
-        )
+    if not update.message:
+        return
+
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("👤 أنا عميل", callback_data=f"btn_customer:{user.id}"),
+            InlineKeyboardButton("🚕 أنا كابتن", callback_data=f"btn_driver:{user.id}")
+        ],
+        [
+            InlineKeyboardButton("⚠️ الشكاوي", callback_data="btn_complaints")
+        ]
+    ])
+
+    await update.message.reply_text(
+        WELCOME_TEXT,
+        parse_mode=ParseMode.HTML,
+        reply_markup=keyboard
+    )
 
 
 # ============================================================
@@ -965,7 +1003,6 @@ async def handle_message(update, context):
         f"TITLE={chat.title} | USER={user.id} | TEXT={message.text or message.caption or ''}"
     )
 
-    # تحقق من القروب
     if chat.id != GROUP_ID:
         logger.warning(f"⚠️ رسالة من قروب غير معتمد: {chat.id}")
         return
@@ -994,13 +1031,12 @@ async def handle_message(update, context):
         await bot_instance.issue_violation(update, context, "نشر الروابط أو الإعلانات الخارجية ممنوع")
         return
 
-    # 🔗 لو عنده طلب معلق، حاول نكمله أولاً
+    # 🔗 طلب معلق
     if user.id in bot_instance.pending_trips:
         pending = bot_instance.pending_trips[user.id]
 
         new_pickup, new_dest = bot_instance.extract_route(text)
 
-        # لو ما لقى بالصيغة "من..إلى"، دوّر بالمواقع فقط
         if not new_pickup or not new_dest:
             found = []
             normalized = bot_instance.normalize_text(text)
@@ -1020,14 +1056,12 @@ async def handle_message(update, context):
         destination = pending["destination"] or new_dest
 
         if pickup and destination:
-            # ✅ كمّلنا الطلب
             del bot_instance.pending_trips[user.id]
             await bot_instance.handle_trip(
                 update, context, pending["type"], pickup, destination
             )
             return
         else:
-            # حدّث المعلّق واستمر بالسؤال
             bot_instance.pending_trips[user.id] = {
                 "type": pending["type"],
                 "pickup": pickup,
@@ -1074,19 +1108,31 @@ def main():
 
     application = Application.builder().token(TOKEN).build()
 
+    # الأوامر
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("chatid", chat_id_command))
     application.add_handler(CommandHandler("mybots", mybots_command))
 
+    # ✅ ترحيب — Handler أساسي
     application.add_handler(
         MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_instance.handle_new_member)
     )
 
+    # ✅ ترحيب — Handler احتياطي (لبعض القروبات)
+    application.add_handler(
+        ChatMemberHandler(
+            bot_instance.handle_chat_member,
+            ChatMemberHandler.CHAT_MEMBER
+        )
+    )
+
+    # الأزرار
     application.add_handler(CallbackQueryHandler(bot_instance.handle_take_trip, pattern=r"^take_trip:"))
     application.add_handler(CallbackQueryHandler(bot_instance.handle_customer_contact, pattern=r"^customer_contact:"))
     application.add_handler(CallbackQueryHandler(bot_instance.handle_close_trip, pattern=r"^close_trip:"))
     application.add_handler(CallbackQueryHandler(bot_instance.handle_callback_buttons, pattern=r"^btn_"))
 
+    # الرسائل العادية
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
     )
