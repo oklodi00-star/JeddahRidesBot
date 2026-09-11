@@ -15,6 +15,7 @@
 - ✅ يفهم السياق الكامل (التحية + الطلب في رسالة واحدة)
 - ✅ يسأل عن المواقع الناقصة ويكمل الطلب
 - ✅ ترحيب تلقائي بدون حذف (handler مزدوج)
+- ✅ المشرف فقط يحدد دور العضو (عميل/كابتن)
 """
 
 import os
@@ -59,7 +60,7 @@ logger = logging.getLogger(__name__)
 TOKEN = os.getenv("BOT_TOKEN", "").strip()
 
 # ============================================================
-# ⚠️ آيدي القروب
+# ⚠️ آيدي القروب والمشرف
 # ============================================================
 
 GROUP_ID = -1003716441020   # ✅ المعرف الصحيح
@@ -68,7 +69,7 @@ GROUP_NAME = "🚘 مشاوير جدة وضواحيها"
 
 ADMIN_USERNAME = "klodi500"
 
-ADMIN_IDS = [952638746]
+ADMIN_IDS = [952638746]   # ✅ آيدي المشرف
 
 ALLOWED_GROUP_LINK = "https://t.me/JeddahRidesGroup"
 
@@ -601,7 +602,7 @@ class SmartRidesBot:
     # --------------------------------------------------------
 
     async def _send_welcome(self, context, member):
-        """دالة موحدة لإرسال الترحيب بدون حذف"""
+        """ترحيب تلقائي + أزرار للمشرف يحدد فيها الدور"""
         logger.info(f"✅ إرسال ترحيب للعضو: {member.id} - {member.first_name}")
 
         try:
@@ -609,10 +610,17 @@ class SmartRidesBot:
         except Exception as e:
             logger.error(f"⚠️ فشل حفظ المستخدم: {e}")
 
+        # ✅ الأزرار تحمل target_id = آيدي العضو الجديد + اسمه
         keyboard = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("👤 أنا عميل", callback_data=f"btn_customer:{member.id}"),
-                InlineKeyboardButton("🚕 أنا كابتن", callback_data=f"btn_driver:{member.id}")
+                InlineKeyboardButton(
+                    f"👤 {member.first_name} عميل",
+                    callback_data=f"btn_customer:{member.id}"
+                ),
+                InlineKeyboardButton(
+                    f"🚕 {member.first_name} كابتن",
+                    callback_data=f"btn_driver:{member.id}"
+                )
             ],
             [
                 InlineKeyboardButton("⚠️ الشكاوي", callback_data="btn_complaints")
@@ -622,7 +630,7 @@ class SmartRidesBot:
         try:
             sent = await context.bot.send_message(
                 chat_id=GROUP_ID,
-                text=WELCOME_TEXT,
+                text=WELCOME_TEXT + f"\n\n👋 انضم: <b>{self.html(member.first_name)}</b>",
                 parse_mode=ParseMode.HTML,
                 reply_markup=keyboard
             )
@@ -864,7 +872,7 @@ class SmartRidesBot:
         await query.answer("✅ تم إغلاق المشوار.", show_alert=True)
 
     # --------------------------------------------------------
-    # 🎛️ الأزرار العامة
+    # 🎛️ الأزرار العامة (المشرف فقط يحدد الدور)
     # --------------------------------------------------------
 
     async def handle_callback_buttons(self, update, context):
@@ -874,25 +882,47 @@ class SmartRidesBot:
 
         if data.startswith("btn_customer:") or data.startswith("btn_driver:"):
             role = "customer" if data.startswith("btn_customer:") else "driver"
+
+            # ✅ فقط المشرف يقدر يضغط
+            if user.id not in ADMIN_IDS:
+                await query.answer(
+                    "❌ هذا الزر مخصص للإدارة فقط.",
+                    show_alert=True
+                )
+                return
+
+            # استخرج آيدي العضو المستهدف
             try:
                 target_id = int(data.split(":")[1])
             except Exception:
                 await query.answer("❌ حدث خطأ.", show_alert=True)
                 return
 
-            if target_id != user.id:
-                await query.answer("❌ هذا الزر غير مخصص لك.", show_alert=True)
+            # ✅ حدّث دور العضو المستهدف
+            try:
+                self.db.set_role(target_id, role)
+            except Exception as e:
+                logger.error(f"خطأ في تحديث الدور: {e}")
+                await query.answer("❌ فشل التحديث.", show_alert=True)
                 return
 
-            self.db.save_user(user)
-            self.db.set_role(user.id, role)
+            role_text = "عميل 👤" if role == "customer" else "كابتن 🚕"
+            await query.answer(
+                f"✅ تم تحديد العضو كـ {role_text}",
+                show_alert=True
+            )
 
-            if role == "driver":
-                text = "🚕 تم تسجيلك ككابتن."
-            else:
-                text = "👤 تم تسجيلك كعميل."
+            # عدّل الرسالة عشان نبين للمشرف إنه حدّد
+            try:
+                await query.message.edit_text(
+                    f"✅ <b>تم تحديد الدور</b>\n\n"
+                    f"👤 المستخدم: <code>{target_id}</code>\n"
+                    f"🎯 الدور: {role_text}",
+                    parse_mode=ParseMode.HTML
+                )
+            except Exception as e:
+                logger.warning(f"تعذر تعديل الرسالة: {e}")
 
-            await query.answer(text, show_alert=True)
             return
 
         if data == "btn_complaints":
@@ -1118,7 +1148,7 @@ def main():
         MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_instance.handle_new_member)
     )
 
-    # ✅ ترحيب — Handler احتياطي (لبعض القروبات)
+    # ✅ ترحيب — Handler احتياطي
     application.add_handler(
         ChatMemberHandler(
             bot_instance.handle_chat_member,
@@ -1142,7 +1172,7 @@ def main():
     logger.info("=" * 50)
     logger.info("🚀 تشغيل بوت مشاوير جدة...")
     logger.info(f"📌 GROUP_ID الحالي = {GROUP_ID}")
-    logger.info("📌 استخدم /chatid داخل القروب لمعرفة الآيدي الحقيقي")
+    logger.info(f"📌 ADMIN_IDS = {ADMIN_IDS}")
     logger.info("=" * 50)
 
     application.run_polling(
