@@ -12,6 +12,8 @@
 - تكرار التواجد = مخالفة
 - أمر /chatid لمعرفة آيدي القروب الحقيقي
 - أمر /mybots لعرض حالة البوت
+- ✅ يفهم السياق الكامل (التحية + الطلب في رسالة واحدة)
+- ✅ يسأل عن المواقع الناقصة ويكمل الطلب
 """
 
 import os
@@ -397,6 +399,12 @@ class SmartRidesBot:
 
     def __init__(self):
         self.db = Database()
+        # ✅ ذاكرة الطلبات المعلقة {user_id: {"type":..., "pickup":..., "destination":...}}
+        self.pending_trips = {}
+
+    # --------------------------------------------------------
+    # 🧹 أدوات مساعدة
+    # --------------------------------------------------------
 
     def normalize_text(self, text):
         if not text:
@@ -415,6 +423,16 @@ class SmartRidesBot:
         if not text:
             return ""
         return (str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+    def strip_greetings(self, text):
+        """يشيل كلمات التحية من النص عشان ما تخرب تحليل المشوار"""
+        if not text:
+            return ""
+        cleaned = text
+        # نرتب من الأطول للأقصر عشان ما يقطع كلمة أقصر جزء من أطول
+        for g in sorted(GREETINGS, key=len, reverse=True):
+            cleaned = re.sub(re.escape(g), " ", cleaned, flags=re.IGNORECASE)
+        return re.sub(r"\s+", " ", cleaned).strip()
 
     def contains_phone_number(self, text):
         if not text:
@@ -447,10 +465,16 @@ class SmartRidesBot:
         return False
 
     def extract_route(self, text):
+        """يستخرج المسار من صيغة (من ... إلى ...)"""
+        if not text:
+            return None, None
         normalized = self.normalize_text(text)
-        match = re.search(r"من\s+(.+?)\s+(?:الى|الي)\s+(.+)", normalized)
+        # ✅ نمط مرن: "من X إلى Y" مع دعم "الي" و"الى"
+        match = re.search(r"من\s+(.+?)\s+(?:الى|الي|إلى|ل)\s+(.+)", normalized)
         if match:
             return match.group(1).strip(), match.group(2).strip()
+
+        # بديل: لقط المواقع المعروفة بالترتيب
         found = []
         for location in LOCATIONS:
             normalized_location = self.normalize_text(location)
@@ -461,24 +485,58 @@ class SmartRidesBot:
         return None, None
 
     def detect_trip(self, text):
-        normalized = self.normalize_text(text)
-        pickup, destination = self.extract_route(text)
-        if not pickup or not destination:
+        """يكشف نية طلب المشوار حتى بدون مواقع كاملة"""
+        # ✅ نشيل التحية أول
+        clean_text = self.strip_greetings(text)
+        normalized = self.normalize_text(clean_text)
+
+        pickup, destination = self.extract_route(clean_text)
+
+        # ✅ هل في نية طلب مشوار؟
+        has_intent = any(
+            self.normalize_text(w) in normalized
+            for w in NORMAL_TRIP_WORDS + MONTHLY_TRIP_WORDS
+        )
+
+        # ✅ هل في مسار واضح؟
+        has_route = bool(pickup and destination)
+
+        # ما في نية ولا مسار -> مو مشوار
+        if not has_intent and not has_route:
             return None, None, None
-        monthly = any(self.normalize_text(word) in normalized for word in MONTHLY_TRIP_WORDS)
+
+        monthly = any(
+            self.normalize_text(w) in normalized
+            for w in MONTHLY_TRIP_WORDS
+        )
         trip_type = "monthly" if monthly else "normal"
+
+        # ✅ نرجع حتى لو ناقص
         return trip_type, pickup, destination
 
     def detect_presence(self, text):
-        normalized = self.normalize_text(text)
-        has_presence = any(self.normalize_text(word) in normalized for word in PRESENCE_WORDS)
+        if not text:
+            return None
+        clean_text = self.strip_greetings(text)
+        normalized = self.normalize_text(clean_text)
+
+        has_presence = any(
+            self.normalize_text(word) in normalized
+            for word in PRESENCE_WORDS
+        )
         if not has_presence:
             return None
+
         for location in LOCATIONS:
             if self.normalize_text(location) in normalized:
                 return location
+
         match = re.search(r"(?:في|ب|عند)\s+([^\s،,.]+)", normalized)
         return match.group(1) if match else None
+
+    # --------------------------------------------------------
+    # 🗑️ حذف الرسائل
+    # --------------------------------------------------------
 
     async def delete_message(self, message):
         try:
@@ -491,6 +549,10 @@ class SmartRidesBot:
             await context.job.data.delete()
         except Exception:
             pass
+
+    # --------------------------------------------------------
+    # ⚠️ المخالفات
+    # --------------------------------------------------------
 
     async def issue_violation(self, update, context, reason):
         message = update.effective_message
@@ -542,6 +604,10 @@ class SmartRidesBot:
             except Exception as e:
                 logger.error(f"خطأ في كتم العضو: {e}")
 
+    # --------------------------------------------------------
+    # 👋 استقبال الأعضاء الجدد
+    # --------------------------------------------------------
+
     async def handle_new_member(self, update, context):
         message = update.effective_message
         if not message:
@@ -573,6 +639,10 @@ class SmartRidesBot:
             if context.job_queue:
                 context.job_queue.run_once(self.delete_later, 60, data=welcome)
 
+    # --------------------------------------------------------
+    # 📍 تسجيل التواجد
+    # --------------------------------------------------------
+
     async def handle_presence(self, update, context, location):
         message = update.effective_message
         user = update.effective_user
@@ -595,6 +665,10 @@ class SmartRidesBot:
         if context.job_queue:
             context.job_queue.run_once(self.delete_later, 20, data=card)
 
+    # --------------------------------------------------------
+    # 🚗 تسجيل مشوار جديد
+    # --------------------------------------------------------
+
     async def handle_trip(self, update, context, trip_type, pickup, destination):
         message = update.effective_message
         user = update.effective_user
@@ -602,6 +676,25 @@ class SmartRidesBot:
         self.db.save_user(user)
         self.db.set_role(user.id, "customer")
 
+        # ❗ لو ناقص موقع -> احفظ الطلب واسأل
+        if not pickup or not destination:
+            self.pending_trips[user.id] = {
+                "type": trip_type,
+                "pickup": pickup,
+                "destination": destination,
+            }
+
+            if not pickup and not destination:
+                question = "📍 من وين إلى وين؟\n\nمثال: «من الفضيلة إلى الأندلس»"
+            elif not pickup:
+                question = f"📍 من وين تنطلق؟ (الوصول: {self.html(destination)})"
+            else:
+                question = f"🏁 إلى وين رايح؟ (الانطلاق: {self.html(pickup)})"
+
+            await message.reply_text(question, parse_mode=ParseMode.HTML)
+            return
+
+        # ✅ المواقع كاملة -> أنشئ المشوار
         trip_id = self.db.create_trip(
             message_id=message.message_id,
             customer_id=user.id,
@@ -625,6 +718,10 @@ class SmartRidesBot:
             parse_mode=ParseMode.HTML,
             reply_markup=keyboard
         )
+
+    # --------------------------------------------------------
+    # 🚕 الكابتن يضغط "جاهز"
+    # --------------------------------------------------------
 
     async def handle_take_trip(self, update, context):
         query = update.callback_query
@@ -669,6 +766,10 @@ class SmartRidesBot:
         except Exception as e:
             logger.error(f"خطأ في إرسال زر التواصل: {e}")
 
+    # --------------------------------------------------------
+    # 📩 تواصل العميل مع الكابتن
+    # --------------------------------------------------------
+
     async def handle_customer_contact(self, update, context):
         query = update.callback_query
 
@@ -707,6 +808,10 @@ class SmartRidesBot:
             reply_markup=InlineKeyboardMarkup(buttons)
         )
 
+    # --------------------------------------------------------
+    # ✅ إغلاق المشوار
+    # --------------------------------------------------------
+
     async def handle_close_trip(self, update, context):
         query = update.callback_query
 
@@ -727,6 +832,10 @@ class SmartRidesBot:
 
         self.db.close_trip(trip_id)
         await query.answer("✅ تم إغلاق المشوار.", show_alert=True)
+
+    # --------------------------------------------------------
+    # 🎛️ الأزرار العامة
+    # --------------------------------------------------------
 
     async def handle_callback_buttons(self, update, context):
         query = update.callback_query
@@ -801,8 +910,7 @@ async def chat_id_command(update, context):
 async def start_command(update, context):
     user = update.effective_user
     if user:
-        db_instance = Database()
-        db_instance.save_user(user)
+        bot_instance.db.save_user(user)
 
     if update.message:
         await update.message.reply_text(
@@ -871,34 +979,79 @@ async def handle_message(update, context):
     if bot_instance.db.is_banned(user.id):
         return
 
-    # منع أرقام الجوال
+    # 🚫 منع أرقام الجوال
     if bot_instance.contains_phone_number(text):
         await bot_instance.issue_violation(update, context, "نشر رقم جوال داخل القروب ممنوع")
         return
 
-    # منع كلمة خاص
+    # 🚫 منع كلمة خاص
     if bot_instance.contains_private_word(text):
         await bot_instance.issue_violation(update, context, "كتابة كلمة «خاص» داخل القروب ممنوعة")
         return
 
-    # منع الروابط
+    # 🚫 منع الروابط
     if bot_instance.contains_unauthorized_link(text):
         await bot_instance.issue_violation(update, context, "نشر الروابط أو الإعلانات الخارجية ممنوع")
         return
 
-    # التواجد
+    # 🔗 لو عنده طلب معلق، حاول نكمله أولاً
+    if user.id in bot_instance.pending_trips:
+        pending = bot_instance.pending_trips[user.id]
+
+        new_pickup, new_dest = bot_instance.extract_route(text)
+
+        # لو ما لقى بالصيغة "من..إلى"، دوّر بالمواقع فقط
+        if not new_pickup or not new_dest:
+            found = []
+            normalized = bot_instance.normalize_text(text)
+            for loc in LOCATIONS:
+                if bot_instance.normalize_text(loc) in normalized and loc not in found:
+                    found.append(loc)
+
+            if len(found) >= 2:
+                new_pickup, new_dest = found[0], found[1]
+            elif len(found) == 1:
+                if not pending["pickup"]:
+                    new_pickup = found[0]
+                elif not pending["destination"]:
+                    new_dest = found[0]
+
+        pickup = pending["pickup"] or new_pickup
+        destination = pending["destination"] or new_dest
+
+        if pickup and destination:
+            # ✅ كمّلنا الطلب
+            del bot_instance.pending_trips[user.id]
+            await bot_instance.handle_trip(
+                update, context, pending["type"], pickup, destination
+            )
+            return
+        else:
+            # حدّث المعلّق واستمر بالسؤال
+            bot_instance.pending_trips[user.id] = {
+                "type": pending["type"],
+                "pickup": pickup,
+                "destination": destination,
+            }
+            if not pickup:
+                await message.reply_text("📍 ما زال ناقص: من وين تنطلق؟")
+            else:
+                await message.reply_text("🏁 ما زال ناقص: إلى وين رايح؟")
+            return
+
+    # 📍 التواجد
     location = bot_instance.detect_presence(text)
     if location:
         await bot_instance.handle_presence(update, context, location)
         return
 
-    # طلب مشوار
+    # 🚗 طلب مشوار
     trip_type, pickup, destination = bot_instance.detect_trip(text)
     if trip_type:
         await bot_instance.handle_trip(update, context, trip_type, pickup, destination)
         return
 
-    # التحية
+    # 👋 التحية
     normalized = bot_instance.normalize_text(text).strip()
     for greeting in GREETINGS:
         if normalized == bot_instance.normalize_text(greeting):
