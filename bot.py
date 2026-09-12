@@ -16,6 +16,7 @@
 - ✅ يسأل عن المواقع الناقصة ويكمل الطلب
 - ✅ ترحيب تلقائي بدون حذف (handler مزدوج)
 - ✅ المشرف فقط يحدد دور العضو (عميل/كابتن)
+- ✅ يفهم "إلين / لين / إلا / إلی" (لهجة سعودية)
 """
 
 import os
@@ -64,17 +65,11 @@ TOKEN = os.getenv("BOT_TOKEN", "").strip()
 # ============================================================
 
 GROUP_ID = -1003716441020   # ✅ المعرف الصحيح
-
 GROUP_NAME = "🚘 مشاوير جدة وضواحيها"
-
 ADMIN_USERNAME = "klodi500"
-
 ADMIN_IDS = [952638746]   # ✅ آيدي المشرف
-
 ALLOWED_GROUP_LINK = "https://t.me/JeddahRidesGroup"
-
 SAUDI_TZ = ZoneInfo("Asia/Riyadh")
-
 DB_FILE = "smart_rides.db"
 
 
@@ -94,6 +89,10 @@ WELCOME_TEXT = f"""
 اكتب طلبك مباشرة في القروب، مثلاً:
 
 «من الفضيلة إلى الأندلس الساعة 5 مساءً»
+
+أو باللهجة السعودية:
+
+«من الحرازات إلين تيسير»
 
 🤖 سيقوم البوت بتسجيل الطلب وإنشاء بطاقة للمشوار.
 
@@ -164,6 +163,7 @@ PRESENCE_WORDS = [
 LOCATIONS = [
     "الفضيلة", "الفضيله", "الرغامة", "الرغامه", "الخمرة",
     "الخمره", "الوزيرية", "الوزيريه", "السنابل", "التيسير",
+    "تيسير", "الحرازات", "الحرازات الشمالية", "الحرازات الجنوبية",
     "النسيم", "الأندلس", "الاندلس", "الأندلس مول",
     "الاندلس مول", "الصناعية", "الزهراء", "النخيل",
     "الصالحية", "الروضة", "الصفا", "المروة", "الجامعة",
@@ -172,8 +172,12 @@ LOCATIONS = [
     "السلامة", "الشاطئ", "أبحر", "ابحر", "التوفيق",
     "العدل", "المنار", "الواحة", "الفيصلية", "الريان",
     "الوادي", "الفلاح", "النهضة", "الرابية", "السلام",
+    "المرجان", "الكورنيش", "الصالة",
     "مكة", "جدة"
 ]
+
+# ✅ كل صيغ "إلى" في اللهجات السعودية والخليجية
+TO_WORDS_PATTERN = r"(?:الى|الي|إلى|إلين|لين|إلا|إلی|لل|ل|to)"
 
 GREETINGS = [
     "السلام عليكم", "سلام عليكم", "السلام", "سلام",
@@ -402,7 +406,6 @@ class SmartRidesBot:
 
     def __init__(self):
         self.db = Database()
-        # ✅ ذاكرة الطلبات المعلقة
         self.pending_trips = {}
 
     # --------------------------------------------------------
@@ -428,7 +431,6 @@ class SmartRidesBot:
         return (str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
     def strip_greetings(self, text):
-        """يشيل كلمات التحية من النص عشان ما تخرب تحليل المشوار"""
         if not text:
             return ""
         cleaned = text
@@ -466,14 +468,37 @@ class SmartRidesBot:
             return True
         return False
 
+    # ============================================================
+    # ✅ دالة استخراج المسار المحسّنة (تدعم إلين/لين/إلى/الى...)
+    # ============================================================
+
     def extract_route(self, text):
         if not text:
             return None, None
-        normalized = self.normalize_text(text)
-        match = re.search(r"من\s+(.+?)\s+(?:الى|الي|إلى|ل)\s+(.+)", normalized)
-        if match:
-            return match.group(1).strip(), match.group(2).strip()
 
+        normalized = self.normalize_text(text)
+
+        # النمط 1: "من X إلى Y" بكل صيغ "إلى"
+        pattern1 = rf"من\s+(.+?)\s+{TO_WORDS_PATTERN}\s+(.+)"
+        match = re.search(pattern1, normalized, re.IGNORECASE)
+        if match:
+            pickup = re.sub(r"[.!،,؟?]+$", "", match.group(1).strip()).strip()
+            destination = re.sub(r"[.!،,؟?]+$", "", match.group(2).strip()).strip()
+            # تنظيف أي كلمات زائدة بعد "الساعة" أو الوقت
+            destination = re.sub(r"\s+(?:الساعه|الساعة|الساعه|بعد|قبل)\s+.*$", "", destination).strip()
+            if pickup and destination:
+                return pickup, destination
+
+        # النمط 2: "X إلى Y" بدون "من"
+        pattern2 = rf"^(.+?)\s+{TO_WORDS_PATTERN}\s+(.+)"
+        match = re.search(pattern2, normalized, re.IGNORECASE)
+        if match:
+            pickup = re.sub(r"[.!،,؟?]+$", "", match.group(1).strip()).strip()
+            destination = re.sub(r"[.!،,؟?]+$", "", match.group(2).strip()).strip()
+            if pickup and destination and len(pickup) > 1:
+                return pickup, destination
+
+        # النمط 3: البحث عن موقعين معروفين في النص
         found = []
         for location in LOCATIONS:
             normalized_location = self.normalize_text(location)
@@ -481,6 +506,7 @@ class SmartRidesBot:
                 found.append(location)
         if len(found) >= 2:
             return found[0], found[1]
+
         return None, None
 
     def detect_trip(self, text):
@@ -494,7 +520,10 @@ class SmartRidesBot:
             for w in NORMAL_TRIP_WORDS + MONTHLY_TRIP_WORDS
         )
 
-        has_route = bool(pickup and destination)
+        # ✅ كشف وجود مسار كامل بصيغة "من ... إلى/إلين/لين ..."
+        has_route = bool(pickup and destination) or bool(
+            re.search(rf"من\s+.+?\s+{TO_WORDS_PATTERN}\s+.+", normalized, re.IGNORECASE)
+        )
 
         if not has_intent and not has_route:
             return None, None, None
@@ -602,7 +631,6 @@ class SmartRidesBot:
     # --------------------------------------------------------
 
     async def _send_welcome(self, context, member):
-        """ترحيب تلقائي + أزرار للمشرف يحدد فيها الدور"""
         logger.info(f"✅ إرسال ترحيب للعضو: {member.id} - {member.first_name}")
 
         try:
@@ -610,7 +638,6 @@ class SmartRidesBot:
         except Exception as e:
             logger.error(f"⚠️ فشل حفظ المستخدم: {e}")
 
-        # ✅ الأزرار تحمل target_id = آيدي العضو الجديد + اسمه
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton(
@@ -639,7 +666,6 @@ class SmartRidesBot:
             logger.error(f"❌ فشل إرسال الترحيب: {e}", exc_info=True)
 
     async def handle_new_member(self, update, context):
-        """Handler أساسي — NEW_CHAT_MEMBERS"""
         message = update.effective_message
         if not message:
             return
@@ -659,7 +685,6 @@ class SmartRidesBot:
             await self._send_welcome(context, member)
 
     async def handle_chat_member(self, update, context):
-        """Handler احتياطي — CHAT_MEMBER (لبعض القروبات)"""
         cm = update.chat_member
         if not cm:
             return
@@ -724,11 +749,21 @@ class SmartRidesBot:
             }
 
             if not pickup and not destination:
-                question = "📍 من وين إلى وين؟\n\nمثال: «من الفضيلة إلى الأندلس»"
+                question = (
+                    "📍 <b>من وين إلى وين؟</b>\n\n"
+                    "مثال:\n"
+                    "«من الحرازات إلين تيسير»"
+                )
             elif not pickup:
-                question = f"📍 من وين تنطلق؟ (الوصول: {self.html(destination)})"
+                question = (
+                    f"📍 <b>ما زال ناقص: من وين تنطلق؟</b>\n\n"
+                    f"🎯 الوصول: {self.html(destination)}"
+                )
             else:
-                question = f"🏁 إلى وين رايح؟ (الانطلاق: {self.html(pickup)})"
+                question = (
+                    f"🏁 <b>ما زال ناقص: إلى وين رايح؟</b>\n\n"
+                    f"📍 الانطلاق: {self.html(pickup)}"
+                )
 
             await message.reply_text(question, parse_mode=ParseMode.HTML)
             return
@@ -749,8 +784,11 @@ class SmartRidesBot:
             [InlineKeyboardButton("✅ تم المشوار", callback_data=f"close_trip:{trip_id}")]
         ])
 
+        type_badge = "🔄 شهري" if trip_type == "monthly" else "🚗 عادي"
+
         await message.reply_text(
             f"✅ <b>تم تسجيل طلبك</b>\n\n"
+            f"📋 النوع: {type_badge}\n"
             f"📍 من: {self.html(pickup)}\n"
             f"🏁 إلى: {self.html(destination)}",
             parse_mode=ParseMode.HTML,
@@ -794,7 +832,9 @@ class SmartRidesBot:
                 chat_id=GROUP_ID,
                 text=(
                     f"🚕 <b>تم تسجيل كابتن للمشوار</b>\n\n"
-                    f"👤 الكابتن: {self.html(user.first_name)}"
+                    f"👤 الكابتن: {self.html(user.first_name)}\n\n"
+                    f"📍 من: {self.html(trip['pickup'])}\n"
+                    f"🏁 إلى: {self.html(trip['destination'])}"
                 ),
                 parse_mode=ParseMode.HTML,
                 reply_markup=InlineKeyboardMarkup([
@@ -872,7 +912,7 @@ class SmartRidesBot:
         await query.answer("✅ تم إغلاق المشوار.", show_alert=True)
 
     # --------------------------------------------------------
-    # 🎛️ الأزرار العامة (المشرف فقط يحدد الدور)
+    # 🎛️ الأزرار العامة (المشرف فقط)
     # --------------------------------------------------------
 
     async def handle_callback_buttons(self, update, context):
@@ -883,7 +923,6 @@ class SmartRidesBot:
         if data.startswith("btn_customer:") or data.startswith("btn_driver:"):
             role = "customer" if data.startswith("btn_customer:") else "driver"
 
-            # ✅ فقط المشرف يقدر يضغط
             if user.id not in ADMIN_IDS:
                 await query.answer(
                     "❌ هذا الزر مخصص للإدارة فقط.",
@@ -891,14 +930,12 @@ class SmartRidesBot:
                 )
                 return
 
-            # استخرج آيدي العضو المستهدف
             try:
                 target_id = int(data.split(":")[1])
             except Exception:
                 await query.answer("❌ حدث خطأ.", show_alert=True)
                 return
 
-            # ✅ حدّث دور العضو المستهدف
             try:
                 self.db.set_role(target_id, role)
             except Exception as e:
@@ -912,7 +949,6 @@ class SmartRidesBot:
                 show_alert=True
             )
 
-            # عدّل الرسالة عشان نبين للمشرف إنه حدّد
             try:
                 await query.message.edit_text(
                     f"✅ <b>تم تحديد الدور</b>\n\n"
@@ -1061,7 +1097,7 @@ async def handle_message(update, context):
         await bot_instance.issue_violation(update, context, "نشر الروابط أو الإعلانات الخارجية ممنوع")
         return
 
-    # 🔗 طلب معلق
+    # 🔗 طلب معلق (يكمل من وين / إلى وين)
     if user.id in bot_instance.pending_trips:
         pending = bot_instance.pending_trips[user.id]
 
