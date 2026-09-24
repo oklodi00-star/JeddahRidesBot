@@ -1,24 +1,25 @@
 """
 🤖 بوت مشاوير جدة الذكي
 
-- العميل يرسل طلبه مباشرة بدون تسجيل مسبق
-- الكابتن يضغط جاهز مباشرة بدون تسجيل مسبق
-- زر التواصل يفتح الخاص مباشرة
-- منع كلمة "خاص"
+المميزات:
+- طلب المشوار مباشرة بدون تسجيل
+- الكابتن يضغط جاهز
+- التواصل من خلال الأزرار
+- منع كلمة خاص
 - منع أرقام الجوال
 - منع الروابط الخارجية
 - 3 مخالفات = كتم 24 ساعة
-- تسجيل تواجد الكابتن مرة واحدة يومياً
+- تسجيل التواجد مرة واحدة يومياً
 - تكرار التواجد = مخالفة
-- أمر /chatid لمعرفة آيدي القروب الحقيقي
-- أمر /mybots لعرض حالة البوت
-- ✅ يفهم السياق الكامل (التحية + الطلب في رسالة واحدة)
-- ✅ يسأل عن المواقع الناقصة ويكمل الطلب
-- ✅ ترحيب تلقائي بدون تكرار
-- ✅ المشرف فقط يحدد دور العضو (عميل/كابتن)
-- ✅ يفهم "إلين / لين / إلا / إلی" (لهجة سعودية)
-- ✅ إشعار إغلاق المشوار في القروب
-- ✅ إصلاح نظام التواجد
+- /chatid
+- /mybots
+- فهم التحية + الطلب
+- طلب المواقع الناقصة
+- ترحيب الأعضاء الجدد
+- الإدارة فقط تحدد الدور
+- فهم إلين / لين / إلا / إلى
+- إشعار إغلاق المشوار
+- إصلاح تمييز التواجد
 """
 
 import os
@@ -62,11 +63,6 @@ logger = logging.getLogger(__name__)
 
 TOKEN = os.getenv("BOT_TOKEN", "").strip()
 
-
-# ============================================================
-# ⚠️ آيدي القروب والمشرف
-# ============================================================
-
 GROUP_ID = -1003716441020
 
 GROUP_NAME = "🚘 مشاوير جدة وضواحيها"
@@ -101,11 +97,11 @@ WELCOME_TEXT = f"""
 
 «من الفضيلة إلى الأندلس الساعة 5 مساءً»
 
-أو باللهجة السعودية:
+أو:
 
 «من الحرازات إلين تيسير»
 
-🤖 سيقوم البوت بتسجيل الطلب وإنشاء بطاقة للمشوار.
+🤖 سيقوم البوت بتسجيل الطلب.
 
 ━━━━━━━━━━━━━━━━━━
 
@@ -129,7 +125,7 @@ WELCOME_TEXT = f"""
 
 أو:
 
-«متواجد بالفيحاء لأي مشوار»
+«متواجد بالحرازات لأي مشوار»
 
 ⚠️ يسمح بتسجيل التواجد مرة واحدة يومياً.
 
@@ -148,11 +144,12 @@ WELCOME_TEXT = f"""
 
 
 # ============================================================
-# 📚 الكلمات المفتاحية
+# 📚 الكلمات
 # ============================================================
 
 MONTHLY_TRIP_WORDS = [
     "شهري",
+    "شهرية",
     "شهريه",
     "شهرياً",
     "شهريا",
@@ -169,7 +166,7 @@ MONTHLY_TRIP_WORDS = [
     "يوميا",
     "يومياً",
     "مشوار يومي",
-    "توصيل يومي"
+    "توصيل يومي",
 ]
 
 
@@ -200,21 +197,33 @@ NORMAL_TRIP_WORDS = [
     "ابغى اروح",
     "أبغى اروح",
     "ابغا اروح",
-    "اريد مشوار"
+    "اريد مشوار",
 ]
 
 
 # ============================================================
 # 📍 كلمات التواجد
+#
+# مهم:
+# لا نستخدم "موجود" كبحث نصي عشوائي.
+#
+# لأن:
+# الموجودين
+# موجودين
+# الموجود
+#
+# ممكن تكون سؤال وليست إعلان تواجد.
 # ============================================================
 
-PRESENCE_WORDS = [
+PRESENCE_PHRASES = [
     "متواجد",
-    "متواجده",
     "متواجدة",
-    "موجود",
-    "موجوده",
-    "موجودة",
+    "متواجده",
+    "متواجدين",
+    "متواجدون",
+    "متواجدين في",
+    "متواجدين بـ",
+    "متواجدين ب",
     "متوفر",
     "متوفرة",
     "متوفره",
@@ -226,11 +235,31 @@ PRESENCE_WORDS = [
     "انا عند",
     "أنا عند",
     "واقف",
-    "واقفه",
     "واقفة",
+    "واقفه",
     "في الموقع",
     "بالخدمة",
-    "بالخدمه"
+    "بالخدمه",
+]
+
+
+# الكلمات التي تعني سؤال عن أشخاص وليست إعلان تواجد
+PRESENCE_QUESTION_WORDS = [
+    "مين",
+    "من",
+    "وين",
+    "احد",
+    "أحد",
+    "فيه احد",
+    "فيه أحد",
+    "في احد",
+    "في أحد",
+    "الموجودين",
+    "موجودين",
+    "المتواجدين",
+    "متواجدين",
+    "الموجود",
+    "موجود",
 ]
 
 
@@ -239,6 +268,11 @@ PRESENCE_WORDS = [
 # ============================================================
 
 LOCATIONS = [
+    "الحرازات الشمالية",
+    "الحرازات الجنوبية",
+    "الأندلس مول",
+    "الاندلس مول",
+
     "الفضيلة",
     "الفضيله",
 
@@ -257,15 +291,11 @@ LOCATIONS = [
     "تيسير",
 
     "الحرازات",
-    "الحرازات الشمالية",
-    "الحرازات الجنوبية",
 
     "النسيم",
 
     "الأندلس",
     "الاندلس",
-    "الأندلس مول",
-    "الاندلس مول",
 
     "الصناعية",
 
@@ -339,7 +369,8 @@ LOCATIONS = [
     "الفيحاء",
 
     "مكة",
-    "جدة"
+
+    "جدة",
 ]
 
 
@@ -363,7 +394,8 @@ GREETINGS = [
     "مساء الخير",
     "هلا",
     "اهلا",
-    "مرحبا"
+    "أهلا",
+    "مرحبا",
 ]
 
 
@@ -383,15 +415,10 @@ class Database:
 
         self.init_db()
 
-    # --------------------------------------------------------
-    # إنشاء الجداول
-    # --------------------------------------------------------
-
     def init_db(self):
 
         cur = self.conn.cursor()
 
-        # المستخدمين
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY,
@@ -402,7 +429,6 @@ class Database:
             )
         """)
 
-        # المشاوير
         cur.execute("""
             CREATE TABLE IF NOT EXISTS trips (
                 trip_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -418,7 +444,6 @@ class Database:
             )
         """)
 
-        # الكباتن الجاهزين
         cur.execute("""
             CREATE TABLE IF NOT EXISTS ready_drivers (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -430,7 +455,6 @@ class Database:
             )
         """)
 
-        # المخالفات
         cur.execute("""
             CREATE TABLE IF NOT EXISTS violations (
                 user_id INTEGER PRIMARY KEY,
@@ -440,7 +464,6 @@ class Database:
             )
         """)
 
-        # المحظورين
         cur.execute("""
             CREATE TABLE IF NOT EXISTS banned_users (
                 user_id INTEGER PRIMARY KEY,
@@ -449,7 +472,6 @@ class Database:
             )
         """)
 
-        # التواجد
         cur.execute("""
             CREATE TABLE IF NOT EXISTS presence (
                 user_id INTEGER PRIMARY KEY,
@@ -462,7 +484,7 @@ class Database:
         self.conn.commit()
 
     # --------------------------------------------------------
-    # حفظ المستخدم
+    # المستخدم
     # --------------------------------------------------------
 
     def save_user(self, user):
@@ -491,10 +513,6 @@ class Database:
 
         self.conn.commit()
 
-    # --------------------------------------------------------
-    # تحديد الدور
-    # --------------------------------------------------------
-
     def set_role(self, user_id, role):
 
         cur = self.conn.cursor()
@@ -505,10 +523,6 @@ class Database:
         )
 
         self.conn.commit()
-
-    # --------------------------------------------------------
-    # معرفة الدور
-    # --------------------------------------------------------
 
     def get_role(self, user_id):
 
@@ -524,7 +538,7 @@ class Database:
         return row["role"] if row else ""
 
     # --------------------------------------------------------
-    # هل المستخدم محظور؟
+    # الحظر
     # --------------------------------------------------------
 
     def is_banned(self, user_id):
@@ -539,7 +553,7 @@ class Database:
         return cur.fetchone() is not None
 
     # --------------------------------------------------------
-    # إنشاء مشوار
+    # المشاوير
     # --------------------------------------------------------
 
     def create_trip(
@@ -583,10 +597,6 @@ class Database:
 
         return cur.lastrowid
 
-    # --------------------------------------------------------
-    # جلب المشوار
-    # --------------------------------------------------------
-
     def get_trip(self, trip_id):
 
         cur = self.conn.cursor()
@@ -600,10 +610,6 @@ class Database:
 
         return dict(row) if row else None
 
-    # --------------------------------------------------------
-    # إغلاق المشوار
-    # --------------------------------------------------------
-
     def close_trip(self, trip_id):
 
         cur = self.conn.cursor()
@@ -616,7 +622,7 @@ class Database:
         self.conn.commit()
 
     # --------------------------------------------------------
-    # إضافة كابتن جاهز
+    # الكباتن
     # --------------------------------------------------------
 
     def add_ready_driver(
@@ -654,10 +660,6 @@ class Database:
 
             return False
 
-    # --------------------------------------------------------
-    # جلب الكباتن الجاهزين
-    # --------------------------------------------------------
-
     def get_ready_drivers(self, trip_id):
 
         cur = self.conn.cursor()
@@ -675,24 +677,7 @@ class Database:
         ]
 
     # --------------------------------------------------------
-    # عدد المخالفات
-    # --------------------------------------------------------
-
-    def get_violation_count(self, user_id):
-
-        cur = self.conn.cursor()
-
-        cur.execute(
-            "SELECT count FROM violations WHERE user_id = ?",
-            (user_id,)
-        )
-
-        row = cur.fetchone()
-
-        return row["count"] if row else 0
-
-    # --------------------------------------------------------
-    # إضافة مخالفة
+    # المخالفات
     # --------------------------------------------------------
 
     def add_violation(self, user_id, reason):
@@ -712,12 +697,10 @@ class Database:
 
             cur.execute("""
                 UPDATE violations
-
                 SET
                     count = ?,
                     last_reason = ?,
                     updated_at = ?
-
                 WHERE user_id = ?
             """, (
                 count,
@@ -751,7 +734,7 @@ class Database:
         return count
 
     # --------------------------------------------------------
-    # تواجد اليوم
+    # التواجد
     # --------------------------------------------------------
 
     def get_presence_today(self, user_id):
@@ -775,10 +758,6 @@ class Database:
         row = cur.fetchone()
 
         return dict(row) if row else None
-
-    # --------------------------------------------------------
-    # حفظ التواجد
-    # --------------------------------------------------------
 
     def save_presence(self, user_id, location):
 
@@ -822,14 +801,12 @@ class SmartRidesBot:
 
         self.db = Database()
 
-        # الطلبات التي تنتظر معلومات ناقصة
         self.pending_trips = {}
 
-        # حماية من تكرار الترحيب
         self.welcomed_members = set()
 
     # ========================================================
-    # 🧹 أدوات مساعدة
+    # أدوات
     # ========================================================
 
     def normalize_text(self, text):
@@ -837,7 +814,7 @@ class SmartRidesBot:
         if not text:
             return ""
 
-        text = text.lower()
+        text = str(text).lower()
 
         replacements = {
             "أ": "ا",
@@ -846,7 +823,7 @@ class SmartRidesBot:
             "ى": "ي",
             "ة": "ه",
             "ؤ": "و",
-            "ئ": "ي"
+            "ئ": "ي",
         }
 
         for old, new in replacements.items():
@@ -860,10 +837,6 @@ class SmartRidesBot:
 
         return text
 
-    # --------------------------------------------------------
-    # HTML
-    # --------------------------------------------------------
-
     def html(self, text):
 
         if not text:
@@ -876,10 +849,6 @@ class SmartRidesBot:
             .replace(">", "&gt;")
         )
 
-    # --------------------------------------------------------
-    # إزالة التحيات
-    # --------------------------------------------------------
-
     def strip_greetings(self, text):
 
         if not text:
@@ -887,14 +856,14 @@ class SmartRidesBot:
 
         cleaned = text
 
-        for g in sorted(
+        for greeting in sorted(
             GREETINGS,
             key=len,
             reverse=True
         ):
 
             cleaned = re.sub(
-                re.escape(g),
+                re.escape(greeting),
                 " ",
                 cleaned,
                 flags=re.IGNORECASE
@@ -906,9 +875,9 @@ class SmartRidesBot:
             cleaned
         ).strip()
 
-    # --------------------------------------------------------
-    # كشف رقم الجوال
-    # --------------------------------------------------------
+    # ========================================================
+    # 📱 رقم الجوال
+    # ========================================================
 
     def contains_phone_number(self, text):
 
@@ -940,9 +909,9 @@ class SmartRidesBot:
             for pattern in patterns
         )
 
-    # --------------------------------------------------------
-    # منع كلمة خاص
-    # --------------------------------------------------------
+    # ========================================================
+    # 🚫 كلمة خاص
+    # ========================================================
 
     def contains_private_word(self, text):
 
@@ -958,7 +927,7 @@ class SmartRidesBot:
             "بالخاص",
             "للخاص",
             "خاصني",
-            "خاصك"
+            "خاصك",
         }
 
         return any(
@@ -966,9 +935,9 @@ class SmartRidesBot:
             for word in words
         )
 
-    # --------------------------------------------------------
-    # منع الروابط الخارجية
-    # --------------------------------------------------------
+    # ========================================================
+    # 🔗 الروابط
+    # ========================================================
 
     def contains_unauthorized_link(self, text):
 
@@ -1000,11 +969,10 @@ class SmartRidesBot:
 
         normalized = self.normalize_text(text)
 
-        # ----------------------------------------------------
-        # من X إلى Y
-        # ----------------------------------------------------
-
-        pattern1 = rf"من\s+(.+?)\s+{TO_WORDS_PATTERN}\s+(.+)"
+        pattern1 = (
+            rf"من\s+(.+?)\s+"
+            rf"{TO_WORDS_PATTERN}\s+(.+)"
+        )
 
         match = re.search(
             pattern1,
@@ -1014,16 +982,20 @@ class SmartRidesBot:
 
         if match:
 
+            pickup = match.group(1).strip()
+
+            destination = match.group(2).strip()
+
             pickup = re.sub(
                 r"[.!،,؟?]+$",
                 "",
-                match.group(1).strip()
+                pickup
             ).strip()
 
             destination = re.sub(
                 r"[.!،,؟?]+$",
                 "",
-                match.group(2).strip()
+                destination
             ).strip()
 
             destination = re.sub(
@@ -1035,11 +1007,10 @@ class SmartRidesBot:
             if pickup and destination:
                 return pickup, destination
 
-        # ----------------------------------------------------
-        # X إلى Y بدون كلمة من
-        # ----------------------------------------------------
-
-        pattern2 = rf"^(.+?)\s+{TO_WORDS_PATTERN}\s+(.+)"
+        pattern2 = (
+            rf"^(.+?)\s+"
+            rf"{TO_WORDS_PATTERN}\s+(.+)"
+        )
 
         match = re.search(
             pattern2,
@@ -1049,34 +1020,30 @@ class SmartRidesBot:
 
         if match:
 
+            pickup = match.group(1).strip()
+
+            destination = match.group(2).strip()
+
             pickup = re.sub(
                 r"[.!،,؟?]+$",
                 "",
-                match.group(1).strip()
+                pickup
             ).strip()
 
             destination = re.sub(
                 r"[.!،,؟?]+$",
                 "",
-                match.group(2).strip()
+                destination
             ).strip()
 
-            if (
-                pickup
-                and destination
-                and len(pickup) > 1
-            ):
+            if pickup and destination:
                 return pickup, destination
-
-        # ----------------------------------------------------
-        # البحث عن مواقع معروفة
-        # ----------------------------------------------------
 
         found = []
 
         for location in sorted(
             LOCATIONS,
-            key=len,
+            key=lambda x: len(self.normalize_text(x)),
             reverse=True
         ):
 
@@ -1084,20 +1051,18 @@ class SmartRidesBot:
                 location
             )
 
-            if (
-                normalized_location in normalized
-                and location not in found
-            ):
-                found.append(location)
+            if normalized_location in normalized:
+
+                if location not in found:
+                    found.append(location)
 
         if len(found) >= 2:
-
             return found[0], found[1]
 
         return None, None
 
     # ========================================================
-    # 🚗 اكتشاف طلب مشوار
+    # 🚗 كشف المشوار
     # ========================================================
 
     def detect_trip(self, text):
@@ -1120,17 +1085,18 @@ class SmartRidesBot:
             )
         )
 
-        has_route = (
-            bool(pickup and destination)
-            or
-            bool(
-                re.search(
-                    rf"من\s+.+?\s+{TO_WORDS_PATTERN}\s+.+",
-                    normalized,
-                    re.IGNORECASE
-                )
-            )
+        has_route = bool(
+            pickup and destination
         )
+
+        route_pattern = re.search(
+            rf"من\s+.+?\s+{TO_WORDS_PATTERN}\s+.+",
+            normalized,
+            re.IGNORECASE
+        )
+
+        if route_pattern:
+            has_route = True
 
         if not has_intent and not has_route:
             return None, None, None
@@ -1153,7 +1119,7 @@ class SmartRidesBot:
         )
 
     # ========================================================
-    # 📍 اكتشاف التواجد — النسخة المصححة
+    # 📍 كشف التواجد
     # ========================================================
 
     def detect_presence(self, text):
@@ -1168,32 +1134,87 @@ class SmartRidesBot:
         )
 
         # ----------------------------------------------------
-        # هل الرسالة تحتوي على كلمة تواجد؟
+        # أولاً:
+        # أسئلة مثل:
+        #
+        # الموجودين ف مخطط السالم
+        # مين الموجودين بالحرازات
+        # مين متواجد بالفضيلة
+        #
+        # هذه ليست إعلان تواجد.
         # ----------------------------------------------------
 
+        question_normalized = normalized
+
+        question_detected = False
+
+        for word in PRESENCE_QUESTION_WORDS:
+
+            normalized_word = self.normalize_text(word)
+
+            if re.search(
+                rf"(^|\s){re.escape(normalized_word)}(\s|$)",
+                question_normalized
+            ):
+
+                question_detected = True
+                break
+
+        if question_detected:
+
+            # إذا بدأت بسؤال عن الموجودين
+            # لا نسجلها كتواجد.
+            if re.search(
+                r"(^|\s)(مين|من|الموجودين|موجودين|المتواجدين)(\s|$)",
+                question_normalized
+            ):
+
+                return None
+
+        # ----------------------------------------------------
+        # لا نعتبر كلمة "موجود" وحدها كافية.
+        #
+        # لازم تكون صياغة إعلان تواجد.
+        # ----------------------------------------------------
+
+        presence_patterns = [
+            r"(^|\s)متواجد(\s|$)",
+            r"(^|\s)متواجده(\s|$)",
+            r"(^|\s)متواجدة(\s|$)",
+            r"(^|\s)متوفر(\s|$)",
+            r"(^|\s)متوفره(\s|$)",
+            r"(^|\s)متوفرة(\s|$)",
+            r"(^|\s)متاح(\s|$)",
+            r"(^|\s)متاحه(\s|$)",
+            r"(^|\s)متاحة(\s|$)",
+            r"(^|\s)انا\s+في(\s|$)",
+            r"(^|\s)انا\s+عند(\s|$)",
+            r"(^|\s)واقف(\s|$)",
+            r"(^|\s)واقفه(\s|$)",
+            r"(^|\s)واقفة(\s|$)",
+            r"(^|\s)في\s+الموقع(\s|$)",
+            r"(^|\s)بالخدمه(\s|$)",
+            r"(^|\s)بالخدمة(\s|$)",
+        ]
+
         has_presence = any(
-            self.normalize_text(word) in normalized
-            for word in PRESENCE_WORDS
+            re.search(
+                pattern,
+                normalized
+            )
+            for pattern in presence_patterns
         )
 
         if not has_presence:
             return None
 
         # ----------------------------------------------------
-        # البحث عن المواقع المعروفة أولاً
-        #
-        # نرتب الأطول أولاً حتى:
-        #
-        # الحرازات الشمالية
-        #
-        # يتم التقاطها قبل:
-        #
-        # الحرازات
+        # البحث عن موقع معروف
         # ----------------------------------------------------
 
         for location in sorted(
             LOCATIONS,
-            key=len,
+            key=lambda x: len(self.normalize_text(x)),
             reverse=True
         ):
 
@@ -1206,16 +1227,12 @@ class SmartRidesBot:
                 return location
 
         # ----------------------------------------------------
-        # البحث عن الموقع بعد:
-        #
-        # في
-        # ب
-        # عند
+        # في / عند
         # ----------------------------------------------------
 
         patterns = [
             r"(?:في|عند)\s+([^\s،,.!?؟]+)",
-            r"\bب([^\s،,.!?؟]+)"
+            r"\bب([^\s،,.!?؟]+)",
         ]
 
         for pattern in patterns:
@@ -1229,22 +1246,21 @@ class SmartRidesBot:
 
                 location = match.group(1).strip()
 
-                # تنظيف
-                location = re.sub(
-                    r"(لأي|لاي|اي|مشوار|مشاوير).*$",
-                    "",
-                    location
-                ).strip()
+                if location in {
+                    "اي",
+                    "أي",
+                    "مشوار",
+                    "مشاوير",
+                    "الموقع",
+                }:
+                    continue
 
-                if location:
-                    return location
+                return location
 
         # ----------------------------------------------------
-        # مثال:
+        # صيغة:
         #
-        # متواجد الفيحاء
-        #
-        # إذا لم تكن الفيحاء في قائمة المواقع
+        # متواجد الفضيلة
         # ----------------------------------------------------
 
         location_text = normalized
@@ -1253,9 +1269,6 @@ class SmartRidesBot:
             "متواجد",
             "متواجده",
             "متواجدة",
-            "موجود",
-            "موجوده",
-            "موجودة",
             "متوفر",
             "متوفره",
             "متوفرة",
@@ -1265,14 +1278,17 @@ class SmartRidesBot:
             "انا",
             "في",
             "عند",
+            "واقف",
+            "واقفه",
+            "واقفة",
             "بالخدمه",
             "بالخدمة",
             "لأي مشوار",
             "لاي مشوار",
-            "لأي مشاوير",
             "لاي مشاوير",
+            "لأي مشاوير",
             "للمشاوير",
-            "للمشوار"
+            "للمشوار",
         ]
 
         for phrase in sorted(
@@ -1292,26 +1308,23 @@ class SmartRidesBot:
             location_text
         ).strip()
 
-        words = location_text.split()
+        if location_text:
 
-        if words:
+            words = location_text.split()
 
-            return words[0]
+            if words:
 
-        # ----------------------------------------------------
-        # تواجد بدون موقع
-        # ----------------------------------------------------
+                return words[0]
 
         return ""
 
     # ========================================================
-    # 🗑️ حذف الرسالة
+    # 🗑️ حذف رسالة
     # ========================================================
 
     async def delete_message(self, message):
 
         try:
-
             await message.delete()
 
         except Exception as e:
@@ -1320,21 +1333,16 @@ class SmartRidesBot:
                 f"تعذر حذف الرسالة: {e}"
             )
 
-    # --------------------------------------------------------
-    # حذف الرسالة بعد مدة
-    # --------------------------------------------------------
-
     async def delete_later(self, context):
 
         try:
-
             await context.job.data.delete()
 
         except Exception:
             pass
 
     # ========================================================
-    # ⚠️ المخالفات
+    # ⚠️ مخالفة
     # ========================================================
 
     async def issue_violation(
@@ -1351,6 +1359,10 @@ class SmartRidesBot:
         if not message or not user:
             return
 
+        # الإدارة لا تسجل عليها مخالفات
+        if user.id in ADMIN_IDS:
+            return
+
         count = self.db.add_violation(
             user.id,
             reason
@@ -1360,22 +1372,14 @@ class SmartRidesBot:
             message
         )
 
-        # ----------------------------------------------------
-        # المخالفة الأولى
-        # ----------------------------------------------------
-
         if count == 1:
 
             text = (
                 f"⚠️ <b>تنبيه</b>\n\n"
                 f"يا {self.html(user.first_name)}، "
                 f"تم تسجيل المخالفة الأولى.\n"
-                f"السبب: {reason}"
+                f"السبب: {self.html(reason)}"
             )
-
-        # ----------------------------------------------------
-        # المخالفة الثانية
-        # ----------------------------------------------------
 
         elif count == 2:
 
@@ -1386,15 +1390,11 @@ class SmartRidesBot:
                 f"⚠️ الثالثة = كتم 24 ساعة."
             )
 
-        # ----------------------------------------------------
-        # الثالثة
-        # ----------------------------------------------------
-
         else:
 
             text = (
                 f"🚫 <b>تم كتمك لمدة 24 ساعة</b>\n\n"
-                f"السبب: {reason}"
+                f"السبب: {self.html(reason)}"
             )
 
         try:
@@ -1419,10 +1419,6 @@ class SmartRidesBot:
                 f"خطأ في إرسال التحذير: {e}"
             )
 
-        # ----------------------------------------------------
-        # كتم 24 ساعة
-        # ----------------------------------------------------
-
         if count >= 3:
 
             try:
@@ -1444,54 +1440,34 @@ class SmartRidesBot:
             except Exception as e:
 
                 logger.error(
-                    f"خطأ في كتم العضو: {e}"
+                    f"خطأ في الكتم: {e}"
                 )
 
     # ========================================================
-    # 👋 ترحيب الأعضاء الجدد
+    # 👋 الترحيب
     # ========================================================
 
-    async def _send_welcome(
+    async def send_welcome(
         self,
         context,
         member
     ):
 
-        # حماية من التكرار
         if member.id in self.welcomed_members:
-
-            logger.info(
-                f"⚠️ العضو {member.id} "
-                f"تم ترحيبه مسبقاً — تجاهل"
-            )
-
             return
 
         self.welcomed_members.add(
             member.id
         )
 
-        logger.info(
-            f"✅ إرسال ترحيب للعضو: "
-            f"{member.id} - {member.first_name}"
-        )
-
-        # حفظ المستخدم
         try:
-
-            self.db.save_user(
-                member
-            )
+            self.db.save_user(member)
 
         except Exception as e:
 
             logger.error(
-                f"⚠️ فشل حفظ المستخدم: {e}"
+                f"فشل حفظ المستخدم: {e}"
             )
-
-        # ----------------------------------------------------
-        # أزرار الترحيب
-        # ----------------------------------------------------
 
         keyboard = InlineKeyboardMarkup([
             [
@@ -1516,35 +1492,26 @@ class SmartRidesBot:
 
         try:
 
-            sent = await context.bot.send_message(
+            await context.bot.send_message(
                 chat_id=GROUP_ID,
-
                 text=(
                     WELCOME_TEXT
                     + "\n\n"
                     + f"👋 انضم: "
                     + f"<b>{self.html(member.first_name)}</b>"
                 ),
-
                 parse_mode=ParseMode.HTML,
-
                 reply_markup=keyboard
-            )
-
-            logger.info(
-                f"✅ تم إرسال الترحيب | "
-                f"msg_id={sent.message_id}"
             )
 
         except Exception as e:
 
             logger.error(
-                f"❌ فشل إرسال الترحيب: {e}",
-                exc_info=True
+                f"فشل إرسال الترحيب: {e}"
             )
 
     # ========================================================
-    # 👋 استقبال دخول الأعضاء
+    # 👋 دخول عضو
     # ========================================================
 
     async def handle_chat_member(
@@ -1558,23 +1525,12 @@ class SmartRidesBot:
         if not cm:
             return
 
-        logger.info(
-            f"👋 CHAT_MEMBER | "
-            f"CHAT={cm.chat.id} | "
-            f"OLD={cm.old_chat_member.status} | "
-            f"NEW={cm.new_chat_member.status}"
-        )
-
         if cm.chat.id != GROUP_ID:
             return
 
-        old_status = (
-            cm.old_chat_member.status
-        )
+        old_status = cm.old_chat_member.status
 
-        new_status = (
-            cm.new_chat_member.status
-        )
+        new_status = cm.new_chat_member.status
 
         if (
             old_status in ("left", "kicked")
@@ -1587,13 +1543,13 @@ class SmartRidesBot:
             if user.is_bot:
                 return
 
-            await self._send_welcome(
+            await self.send_welcome(
                 context,
                 user
             )
 
     # ========================================================
-    # 📍 تسجيل التواجد
+    # 📍 التواجد
     # ========================================================
 
     async def handle_presence(
@@ -1610,17 +1566,9 @@ class SmartRidesBot:
         if not message or not user:
             return
 
-        # حفظ بيانات المستخدم فقط
-        # لا نغير دوره تلقائياً
         self.db.save_user(user)
 
-        # ----------------------------------------------------
-        # التواجد مكرر؟
-        # ----------------------------------------------------
-
-        if self.db.get_presence_today(
-            user.id
-        ):
+        if self.db.get_presence_today(user.id):
 
             await self.issue_violation(
                 update,
@@ -1630,18 +1578,10 @@ class SmartRidesBot:
 
             return
 
-        # ----------------------------------------------------
-        # حفظ التواجد
-        # ----------------------------------------------------
-
         self.db.save_presence(
             user.id,
             location
         )
-
-        # ----------------------------------------------------
-        # الرد
-        # ----------------------------------------------------
 
         await message.reply_text(
             f"📍 <b>تم تسجيل تواجدك</b>\n\n"
@@ -1653,7 +1593,7 @@ class SmartRidesBot:
         )
 
     # ========================================================
-    # 🚗 تسجيل مشوار جديد
+    # 🚗 إنشاء مشوار
     # ========================================================
 
     async def handle_trip(
@@ -1674,19 +1614,10 @@ class SmartRidesBot:
 
         self.db.save_user(user)
 
-        # ----------------------------------------------------
-        # ملاحظة:
-        # يبقى تعيين العميل هنا كما كان في الكود الأصلي
-        # ----------------------------------------------------
-
         self.db.set_role(
             user.id,
             "customer"
         )
-
-        # ----------------------------------------------------
-        # معلومات ناقصة
-        # ----------------------------------------------------
 
         if not pickup or not destination:
 
@@ -1696,7 +1627,6 @@ class SmartRidesBot:
                 "destination": destination,
             }
 
-            # لا يوجد أي موقع
             if not pickup and not destination:
 
                 question = (
@@ -1705,20 +1635,18 @@ class SmartRidesBot:
                     "«من الحرازات إلين تيسير»"
                 )
 
-            # الانطلاق ناقص
             elif not pickup:
 
                 question = (
-                    f"📍 <b>ما زال ناقص: من وين تنطلق؟</b>\n\n"
-                    f"🎯 الوصول: "
+                    "📍 <b>ما زال ناقص: من وين تنطلق؟</b>\n\n"
+                    f"🏁 الوصول: "
                     f"{self.html(destination)}"
                 )
 
-            # الوصول ناقص
             else:
 
                 question = (
-                    f"🏁 <b>ما زال ناقص: إلى وين رايح؟</b>\n\n"
+                    "🏁 <b>ما زال ناقص: إلى وين رايح؟</b>\n\n"
                     f"📍 الانطلاق: "
                     f"{self.html(pickup)}"
                 )
@@ -1729,10 +1657,6 @@ class SmartRidesBot:
             )
 
             return
-
-        # ----------------------------------------------------
-        # إنشاء المشوار
-        # ----------------------------------------------------
 
         trip_id = self.db.create_trip(
             message_id=message.message_id,
@@ -1745,14 +1669,9 @@ class SmartRidesBot:
             destination=destination,
             trip_type=trip_type,
             original_text=(
-                message.text
-                or ""
+                message.text or ""
             )
         )
-
-        # ----------------------------------------------------
-        # أزرار المشوار
-        # ----------------------------------------------------
 
         keyboard = InlineKeyboardMarkup([
             [
@@ -1761,14 +1680,12 @@ class SmartRidesBot:
                     callback_data=f"take_trip:{trip_id}"
                 )
             ],
-
             [
                 InlineKeyboardButton(
                     "📩 التواصل مع الكابتن",
                     callback_data=f"customer_contact:{trip_id}"
                 )
             ],
-
             [
                 InlineKeyboardButton(
                     "✅ تم المشوار",
@@ -1789,14 +1706,12 @@ class SmartRidesBot:
             f"📋 النوع: {type_badge}\n"
             f"📍 من: {self.html(pickup)}\n"
             f"🏁 إلى: {self.html(destination)}",
-
             parse_mode=ParseMode.HTML,
-
             reply_markup=keyboard
         )
 
     # ========================================================
-    # 🚕 الكابتن يضغط جاهز
+    # 🚕 جاهز
     # ========================================================
 
     async def handle_take_trip(
@@ -1824,9 +1739,7 @@ class SmartRidesBot:
 
             return
 
-        trip = self.db.get_trip(
-            trip_id
-        )
+        trip = self.db.get_trip(trip_id)
 
         if (
             not trip
@@ -1840,7 +1753,6 @@ class SmartRidesBot:
 
             return
 
-        # العميل لا يأخذ مشواره
         if user.id == trip["customer_id"]:
 
             await query.answer(
@@ -1852,17 +1764,18 @@ class SmartRidesBot:
 
         self.db.save_user(user)
 
-        # تسجيله ككابتن لأنه ضغط جاهز
         self.db.set_role(
             user.id,
             "driver"
         )
 
-        if not self.db.add_ready_driver(
+        added = self.db.add_ready_driver(
             trip_id,
             user.id,
             user.first_name or "الكابتن"
-        ):
+        )
+
+        if not added:
 
             await query.answer(
                 "⚠️ أنت مسجل بالفعل لهذا المشوار.",
@@ -1876,18 +1789,12 @@ class SmartRidesBot:
             show_alert=True
         )
 
-        # ----------------------------------------------------
-        # إشعار القروب
-        # ----------------------------------------------------
-
         try:
 
             await context.bot.send_message(
                 chat_id=GROUP_ID,
-
                 text=(
-                    f"🚕 <b>تم تسجيل كابتن "
-                    f"للمشوار #{trip_id}</b>\n\n"
+                    f"🚕 <b>تم تسجيل كابتن للمشوار #{trip_id}</b>\n\n"
                     f"👤 الكابتن: "
                     f"{self.html(user.first_name)}\n\n"
                     f"📍 من: "
@@ -1895,9 +1802,7 @@ class SmartRidesBot:
                     f"🏁 إلى: "
                     f"{self.html(trip['destination'])}"
                 ),
-
                 parse_mode=ParseMode.HTML,
-
                 reply_markup=InlineKeyboardMarkup([
                     [
                         InlineKeyboardButton(
@@ -1914,11 +1819,11 @@ class SmartRidesBot:
         except Exception as e:
 
             logger.error(
-                f"خطأ في إرسال زر التواصل: {e}"
+                f"خطأ في إرسال إشعار الكابتن: {e}"
             )
 
     # ========================================================
-    # 📩 تواصل العميل مع الكابتن
+    # 📩 العميل يتواصل مع الكابتن
     # ========================================================
 
     async def handle_customer_contact(
@@ -1944,9 +1849,7 @@ class SmartRidesBot:
 
             return
 
-        trip = self.db.get_trip(
-            trip_id
-        )
+        trip = self.db.get_trip(trip_id)
 
         if not trip:
 
@@ -1957,25 +1860,14 @@ class SmartRidesBot:
 
             return
 
-        # ----------------------------------------------------
-        # الزر للعميل صاحب الطلب فقط
-        # ----------------------------------------------------
-
-        if (
-            query.from_user.id
-            != trip["customer_id"]
-        ):
+        if query.from_user.id != trip["customer_id"]:
 
             await query.answer(
-                "❌ هذا الزر مخصص للعميل صاحب الطلب.",
+                "❌ هذا الزر مخصص لصاحب الطلب.",
                 show_alert=True
             )
 
             return
-
-        # ----------------------------------------------------
-        # الكباتن الجاهزين
-        # ----------------------------------------------------
 
         drivers = self.db.get_ready_drivers(
             trip_id
@@ -1996,9 +1888,7 @@ class SmartRidesBot:
 
             buttons.append([
                 InlineKeyboardButton(
-                    f"📩 التواصل مع "
-                    f"{driver['driver_name']}",
-
+                    f"📩 التواصل مع {driver['driver_name']}",
                     url=(
                         f"tg://user?id="
                         f"{driver['driver_id']}"
@@ -2010,10 +1900,7 @@ class SmartRidesBot:
 
         await query.message.reply_text(
             "🚕 اختر الكابتن للتواصل:",
-
-            reply_markup=InlineKeyboardMarkup(
-                buttons
-            )
+            reply_markup=InlineKeyboardMarkup(buttons)
         )
 
     # ========================================================
@@ -2043,9 +1930,7 @@ class SmartRidesBot:
 
             return
 
-        trip = self.db.get_trip(
-            trip_id
-        )
+        trip = self.db.get_trip(trip_id)
 
         if not trip:
 
@@ -2056,14 +1941,7 @@ class SmartRidesBot:
 
             return
 
-        # ----------------------------------------------------
-        # صاحب الطلب فقط
-        # ----------------------------------------------------
-
-        if (
-            query.from_user.id
-            != trip["customer_id"]
-        ):
+        if query.from_user.id != trip["customer_id"]:
 
             await query.answer(
                 "⚠️ صاحب الطلب فقط يستطيع الإغلاق.",
@@ -2081,22 +1959,12 @@ class SmartRidesBot:
 
             return
 
-        # ----------------------------------------------------
-        # إغلاق
-        # ----------------------------------------------------
-
-        self.db.close_trip(
-            trip_id
-        )
+        self.db.close_trip(trip_id)
 
         await query.answer(
             "✅ تم إغلاق المشوار.",
             show_alert=True
         )
-
-        # ----------------------------------------------------
-        # إزالة الأزرار من البطاقة
-        # ----------------------------------------------------
 
         try:
 
@@ -2104,45 +1972,34 @@ class SmartRidesBot:
                 reply_markup=None
             )
 
-        except Exception as e:
-
-            logger.warning(
-                f"تعذر إزالة الأزرار: {e}"
-            )
-
-        # ----------------------------------------------------
-        # إشعار القروب
-        # ----------------------------------------------------
+        except Exception:
+            pass
 
         try:
 
             await context.bot.send_message(
                 chat_id=GROUP_ID,
-
                 text=(
-                    f"✅ <b>تم إغلاق "
-                    f"المشوار #{trip_id}</b>\n\n"
+                    f"✅ <b>تم إغلاق المشوار #{trip_id}</b>\n\n"
                     f"👤 العميل: "
                     f"{self.html(trip['customer_name'])}\n"
                     f"📍 من: "
                     f"{self.html(trip['pickup'])}\n"
                     f"🏁 إلى: "
                     f"{self.html(trip['destination'])}\n\n"
-                    f"شكراً لاستخدامكم "
-                    f"مشاوير جدة 🚘"
+                    f"شكراً لاستخدامكم مشاوير جدة 🚘"
                 ),
-
                 parse_mode=ParseMode.HTML
             )
 
         except Exception as e:
 
             logger.error(
-                f"خطأ في إرسال إشعار الإغلاق: {e}"
+                f"خطأ في إشعار الإغلاق: {e}"
             )
 
     # ========================================================
-    # 🎛️ الأزرار العامة
+    # 🎛️ أزرار الإدارة والشكاوي
     # ========================================================
 
     async def handle_callback_buttons(
@@ -2158,7 +2015,7 @@ class SmartRidesBot:
         user = query.from_user
 
         # ----------------------------------------------------
-        # تحديد عميل / كابتن
+        # تحديد الدور
         # ----------------------------------------------------
 
         if (
@@ -2174,7 +2031,6 @@ class SmartRidesBot:
                 "driver"
             )
 
-            # الإدارة فقط
             if user.id not in ADMIN_IDS:
 
                 await query.answer(
@@ -2199,25 +2055,10 @@ class SmartRidesBot:
 
                 return
 
-            try:
-
-                self.db.set_role(
-                    target_id,
-                    role
-                )
-
-            except Exception as e:
-
-                logger.error(
-                    f"خطأ في تحديث الدور: {e}"
-                )
-
-                await query.answer(
-                    "❌ فشل التحديث.",
-                    show_alert=True
-                )
-
-                return
+            self.db.set_role(
+                target_id,
+                role
+            )
 
             role_text = (
                 "عميل 👤"
@@ -2238,15 +2079,11 @@ class SmartRidesBot:
                     f"👤 المستخدم: "
                     f"<code>{target_id}</code>\n"
                     f"🎯 الدور: {role_text}",
-
                     parse_mode=ParseMode.HTML
                 )
 
-            except Exception as e:
-
-                logger.warning(
-                    f"تعذر تعديل الرسالة: {e}"
-                )
+            except Exception:
+                pass
 
             return
 
@@ -2263,9 +2100,264 @@ class SmartRidesBot:
                 f"@{ADMIN_USERNAME}"
             )
 
+    # ========================================================
+    # 📩 استقبال الرسائل
+    # ========================================================
+
+    async def handle_message(
+        self,
+        update,
+        context
+    ):
+
+        message = update.effective_message
+
+        user = update.effective_user
+
+        chat = update.effective_chat
+
+        if not message or not user or not chat:
+            return
+
+        if chat.id != GROUP_ID:
+            return
+
+        text = (
+            message.text
+            or message.caption
+            or ""
+        )
+
+        if not text.strip():
+            return
+
+        logger.info(
+            f"🔥 رسالة | "
+            f"CHAT={chat.id} | "
+            f"USER={user.id} | "
+            f"TEXT={text}"
+        )
+
+        self.db.save_user(user)
+
+        if self.db.is_banned(user.id):
+            return
+
+        # ----------------------------------------------------
+        # حماية
+        # ----------------------------------------------------
+
+        if self.contains_phone_number(text):
+
+            await self.issue_violation(
+                update,
+                context,
+                "نشر رقم جوال داخل القروب ممنوع"
+            )
+
+            return
+
+        if self.contains_private_word(text):
+
+            await self.issue_violation(
+                update,
+                context,
+                "كتابة كلمة «خاص» داخل القروب ممنوعة"
+            )
+
+            return
+
+        if self.contains_unauthorized_link(text):
+
+            await self.issue_violation(
+                update,
+                context,
+                "نشر الروابط أو الإعلانات الخارجية ممنوع"
+            )
+
+            return
+
+        # ====================================================
+        # 📍 التواجد
+        #
+        # يجب أن يكون قبل المشاوير
+        # لكن فقط إذا كانت الرسالة إعلان تواجد فعلي.
+        #
+        # مثال:
+        #
+        # متواجد بالفضيلة شوفات ماشي الحرازات
+        # ✅ تواجد في الفضيلة
+        #
+        # الموجودين ف مخطط السالم
+        # ❌ ليست تواجد
+        # ====================================================
+
+        presence_location = self.detect_presence(text)
+
+        if presence_location is not None:
+
+            if not presence_location.strip():
+
+                await message.reply_text(
+                    "📍 <b>وين موقع تواجدك؟</b>\n\n"
+                    "مثال:\n"
+                    "«متواجد في الفضيلة»\n"
+                    "أو:\n"
+                    "«متواجد بالحرازات لأي مشوار»",
+                    parse_mode=ParseMode.HTML
+                )
+
+                return
+
+            await self.handle_presence(
+                update,
+                context,
+                presence_location
+            )
+
+            return
+
+        # ====================================================
+        # 🚗 طلب معلق
+        # ====================================================
+
+        if user.id in self.pending_trips:
+
+            pending = self.pending_trips[user.id]
+
+            new_pickup, new_dest = (
+                self.extract_route(text)
+            )
+
+            if not new_pickup or not new_dest:
+
+                found = []
+
+                normalized = self.normalize_text(text)
+
+                for location in sorted(
+                    LOCATIONS,
+                    key=lambda x: len(self.normalize_text(x)),
+                    reverse=True
+                ):
+
+                    normalized_location = (
+                        self.normalize_text(location)
+                    )
+
+                    if (
+                        normalized_location in normalized
+                        and
+                        location not in found
+                    ):
+
+                        found.append(location)
+
+                if len(found) >= 2:
+
+                    new_pickup = found[0]
+                    new_dest = found[1]
+
+                elif len(found) == 1:
+
+                    if not pending["pickup"]:
+
+                        new_pickup = found[0]
+
+                    elif not pending["destination"]:
+
+                        new_dest = found[0]
+
+            pickup = (
+                pending["pickup"]
+                or new_pickup
+            )
+
+            destination = (
+                pending["destination"]
+                or new_dest
+            )
+
+            if pickup and destination:
+
+                del self.pending_trips[user.id]
+
+                await self.handle_trip(
+                    update,
+                    context,
+                    pending["type"],
+                    pickup,
+                    destination
+                )
+
+                return
+
+            self.pending_trips[user.id] = {
+                "type": pending["type"],
+                "pickup": pickup,
+                "destination": destination,
+            }
+
+            if not pickup:
+
+                await message.reply_text(
+                    "📍 ما زال ناقص: من وين تنطلق؟"
+                )
+
+            else:
+
+                await message.reply_text(
+                    "🏁 ما زال ناقص: إلى وين رايح؟"
+                )
+
+            return
+
+        # ====================================================
+        # 🚗 طلب مشوار جديد
+        # ====================================================
+
+        trip_type, pickup, destination = (
+            self.detect_trip(text)
+        )
+
+        if trip_type:
+
+            await self.handle_trip(
+                update,
+                context,
+                trip_type,
+                pickup,
+                destination
+            )
+
+            return
+
+        # ====================================================
+        # 👋 التحية
+        # ====================================================
+
+        normalized = self.normalize_text(
+            text
+        ).strip()
+
+        for greeting in GREETINGS:
+
+            if (
+                normalized
+                ==
+                self.normalize_text(greeting)
+            ):
+
+                await message.reply_text(
+                    "وعليكم السلام ورحمة الله وبركاته 🌹\n"
+                    "حياك الله في مشاوير جدة 🚘"
+                )
+
+                return
+
 
 # ============================================================
-# 📌 /chatid
+# 🌐 أوامر خارج الكلاس
 # ============================================================
 
 async def chat_id_command(
@@ -2278,17 +2370,10 @@ async def chat_id_command(
     if not chat:
         return
 
-    logger.info(
-        f"🔎 CHATID | "
-        f"ID={chat.id} | "
-        f"TYPE={chat.type} | "
-        f"TITLE={chat.title}"
-    )
-
-    if chat.type in [
+    if chat.type in (
         "group",
         "supergroup"
-    ]:
+    ):
 
         text = (
             "📌 <b>بيانات القروب</b>\n\n"
@@ -2297,9 +2382,7 @@ async def chat_id_command(
             f"📋 النوع: "
             f"<code>{chat.type}</code>\n"
             f"🏷 الاسم: "
-            f"{chat.title or 'بدون اسم'}\n\n"
-            "✅ أرسل لي هذا الرقم "
-            "لأضعه لك في الكود."
+            f"{chat.title or 'بدون اسم'}"
         )
 
     else:
@@ -2318,10 +2401,6 @@ async def chat_id_command(
     )
 
 
-# ============================================================
-# /start
-# ============================================================
-
 async def start_command(
     update,
     context
@@ -2329,14 +2408,10 @@ async def start_command(
 
     user = update.effective_user
 
-    if user:
-
-        bot_instance.db.save_user(
-            user
-        )
-
-    if not update.message:
+    if not user:
         return
+
+    bot_instance.db.save_user(user)
 
     keyboard = InlineKeyboardMarkup([
         [
@@ -2359,16 +2434,12 @@ async def start_command(
         ]
     ])
 
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         WELCOME_TEXT,
         parse_mode=ParseMode.HTML,
         reply_markup=keyboard
     )
 
-
-# ============================================================
-# /mybots
-# ============================================================
 
 async def mybots_command(
     update,
@@ -2377,26 +2448,15 @@ async def mybots_command(
 
     user = update.effective_user
 
-    text = (
-        "🤖 <b>حالة البوت</b>\n\n"
-        f"👤 المستخدم: "
-        f"{user.first_name}\n"
-        f"🆔 معرفك: "
-        f"<code>{user.id}</code>\n"
-        f"📌 معرف القروب الحالي: "
-        f"<code>{GROUP_ID}</code>\n"
-        "✅ البوت يعمل بشكل طبيعي."
-    )
-
     await update.effective_message.reply_text(
-        text,
+        "🤖 <b>حالة البوت</b>\n\n"
+        f"👤 المستخدم: {user.first_name}\n"
+        f"🆔 معرفك: <code>{user.id}</code>\n"
+        f"📌 معرف القروب: <code>{GROUP_ID}</code>\n"
+        "✅ البوت يعمل.",
         parse_mode=ParseMode.HTML
     )
 
-
-# ============================================================
-# ❌ معالجة الأخطاء
-# ============================================================
 
 async def error_handler(
     update,
@@ -2404,336 +2464,9 @@ async def error_handler(
 ):
 
     logger.error(
-        "❌ حدث خطأ أثناء معالجة Update:",
+        "❌ حدث خطأ:",
         exc_info=context.error
     )
-
-
-# ============================================================
-# 📩 استقبال رسائل القروب
-# ============================================================
-
-async def handle_message(
-    update,
-    context
-):
-
-    message = update.effective_message
-
-    user = update.effective_user
-
-    chat = update.effective_chat
-
-    if not message or not user or not chat:
-        return
-
-    logger.info(
-        f"🔥 وصلت رسالة | "
-        f"CHAT_ID={chat.id} | "
-        f"TYPE={chat.type} | "
-        f"TITLE={chat.title} | "
-        f"USER={user.id} | "
-        f"TEXT={message.text or message.caption or ''}"
-    )
-
-    # --------------------------------------------------------
-    # التأكد من القروب
-    # --------------------------------------------------------
-
-    if chat.id != GROUP_ID:
-
-        logger.warning(
-            f"⚠️ رسالة من قروب غير معتمد: "
-            f"{chat.id}"
-        )
-
-        return
-
-    text = (
-        message.text
-        or message.caption
-        or ""
-    )
-
-    if not text.strip():
-        return
-
-    # --------------------------------------------------------
-    # حفظ المستخدم
-    # --------------------------------------------------------
-
-    bot_instance.db.save_user(
-        user
-    )
-
-    # --------------------------------------------------------
-    # المحظور
-    # --------------------------------------------------------
-
-    if bot_instance.db.is_banned(
-        user.id
-    ):
-        return
-
-    # ========================================================
-    # 🚫 الحماية والمخالفات
-    # ========================================================
-
-    # رقم جوال
-    if bot_instance.contains_phone_number(
-        text
-    ):
-
-        await bot_instance.issue_violation(
-            update,
-            context,
-            "نشر رقم جوال داخل القروب ممنوع"
-        )
-
-        return
-
-    # كلمة خاص
-    if bot_instance.contains_private_word(
-        text
-    ):
-
-        await bot_instance.issue_violation(
-            update,
-            context,
-            "كتابة كلمة «خاص» داخل القروب ممنوعة"
-        )
-
-        return
-
-    # روابط
-    if bot_instance.contains_unauthorized_link(
-        text
-    ):
-
-        await bot_instance.issue_violation(
-            update,
-            context,
-            "نشر الروابط أو الإعلانات الخارجية ممنوع"
-        )
-
-        return
-
-    # ========================================================
-    # 📍 التواجد — يجب أن يكون قبل أي طلب مشوار
-    # ========================================================
-    #
-    # هذه أهم نقطة في الإصلاح.
-    #
-    # أي رسالة فيها:
-    #
-    # متواجد
-    # موجود
-    # متوفر
-    # أنا في
-    # أنا عند
-    #
-    # يتم التعامل معها كتواجد أولاً.
-    #
-    # مثال:
-    #
-    # متواجد بالفيحاء لأي مشوار
-    #
-    # لن تصل أبداً إلى detect_trip().
-    #
-    # ========================================================
-
-    presence_location = (
-        bot_instance.detect_presence(text)
-    )
-
-    if presence_location is not None:
-
-        # ----------------------------------------------------
-        # تواجد بدون موقع
-        # ----------------------------------------------------
-
-        if not presence_location.strip():
-
-            await message.reply_text(
-                "📍 <b>وين موقع تواجدك؟</b>\n\n"
-                "مثال:\n"
-                "«متواجد في الفيحاء»\n"
-                "أو\n"
-                "«متواجد بالحرازات لأي مشوار»",
-
-                parse_mode=ParseMode.HTML
-            )
-
-            return
-
-        # ----------------------------------------------------
-        # تسجيل التواجد
-        # ----------------------------------------------------
-
-        await bot_instance.handle_presence(
-            update,
-            context,
-            presence_location
-        )
-
-        return
-
-    # ========================================================
-    # 🚗 الطلبات المعلقة
-    # ========================================================
-
-    if user.id in bot_instance.pending_trips:
-
-        pending = (
-            bot_instance.pending_trips[user.id]
-        )
-
-        new_pickup, new_dest = (
-            bot_instance.extract_route(text)
-        )
-
-        if not new_pickup or not new_dest:
-
-            found = []
-
-            normalized = (
-                bot_instance.normalize_text(text)
-            )
-
-            for loc in sorted(
-                LOCATIONS,
-                key=len,
-                reverse=True
-            ):
-
-                normalized_loc = (
-                    bot_instance.normalize_text(loc)
-                )
-
-                if (
-                    normalized_loc in normalized
-                    and loc not in found
-                ):
-
-                    found.append(loc)
-
-            if len(found) >= 2:
-
-                new_pickup = found[0]
-
-                new_dest = found[1]
-
-            elif len(found) == 1:
-
-                if not pending["pickup"]:
-
-                    new_pickup = found[0]
-
-                elif not pending["destination"]:
-
-                    new_dest = found[0]
-
-        pickup = (
-            pending["pickup"]
-            or new_pickup
-        )
-
-        destination = (
-            pending["destination"]
-            or new_dest
-        )
-
-        # ----------------------------------------------------
-        # اكتمل الطلب
-        # ----------------------------------------------------
-
-        if pickup and destination:
-
-            del bot_instance.pending_trips[
-                user.id
-            ]
-
-            await bot_instance.handle_trip(
-                update,
-                context,
-                pending["type"],
-                pickup,
-                destination
-            )
-
-            return
-
-        # ----------------------------------------------------
-        # ما زالت معلومات ناقصة
-        # ----------------------------------------------------
-
-        bot_instance.pending_trips[
-            user.id
-        ] = {
-            "type": pending["type"],
-            "pickup": pickup,
-            "destination": destination,
-        }
-
-        if not pickup:
-
-            await message.reply_text(
-                "📍 ما زال ناقص: من وين تنطلق؟"
-            )
-
-        else:
-
-            await message.reply_text(
-                "🏁 ما زال ناقص: إلى وين رايح؟"
-            )
-
-        return
-
-    # ========================================================
-    # 🚗 تحليل طلب مشوار جديد
-    # ========================================================
-
-    trip_type, pickup, destination = (
-        bot_instance.detect_trip(text)
-    )
-
-    if trip_type:
-
-        await bot_instance.handle_trip(
-            update,
-            context,
-            trip_type,
-            pickup,
-            destination
-        )
-
-        return
-
-    # ========================================================
-    # 👋 التحية فقط
-    # ========================================================
-
-    normalized = (
-        bot_instance.normalize_text(text)
-        .strip()
-    )
-
-    for greeting in GREETINGS:
-
-        if (
-            normalized
-            ==
-            bot_instance.normalize_text(
-                greeting
-            )
-        ):
-
-            await message.reply_text(
-                "وعليكم السلام ورحمة الله وبركاته 🌹\n"
-                "حياك الله في مشاوير جدة 🚘"
-            )
-
-            return
 
 
 # ============================================================
@@ -2742,14 +2475,13 @@ async def handle_message(
 
 def main():
 
+    global bot_instance
+
     if not TOKEN:
 
         raise RuntimeError(
-            "❌ لم يتم العثور على BOT_TOKEN "
-            "في متغيرات البيئة."
+            "❌ لم يتم العثور على BOT_TOKEN"
         )
-
-    global bot_instance
 
     bot_instance = SmartRidesBot()
 
@@ -2760,9 +2492,9 @@ def main():
         .build()
     )
 
-    # ========================================================
-    # 📌 الأوامر
-    # ========================================================
+    # --------------------------------------------------------
+    # الأوامر
+    # --------------------------------------------------------
 
     application.add_handler(
         CommandHandler(
@@ -2785,9 +2517,9 @@ def main():
         )
     )
 
-    # ========================================================
-    # 👋 ترحيب الأعضاء
-    # ========================================================
+    # --------------------------------------------------------
+    # دخول الأعضاء
+    # --------------------------------------------------------
 
     application.add_handler(
         ChatMemberHandler(
@@ -2796,9 +2528,9 @@ def main():
         )
     )
 
-    # ========================================================
-    # 🎛️ الأزرار
-    # ========================================================
+    # --------------------------------------------------------
+    # الأزرار
+    # --------------------------------------------------------
 
     application.add_handler(
         CallbackQueryHandler(
@@ -2828,44 +2560,34 @@ def main():
         )
     )
 
-    # ========================================================
-    # 📩 الرسائل العادية
-    # ========================================================
+    # --------------------------------------------------------
+    # الرسائل
+    # --------------------------------------------------------
 
     application.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
-            handle_message
+            bot_instance.handle_message
         )
     )
 
-    # ========================================================
-    # ❌ الأخطاء
-    # ========================================================
+    # --------------------------------------------------------
+    # الأخطاء
+    # --------------------------------------------------------
 
     application.add_error_handler(
         error_handler
     )
 
-    # ========================================================
-    # 🚀 التشغيل
-    # ========================================================
+    # --------------------------------------------------------
+    # تشغيل
+    # --------------------------------------------------------
 
-    logger.info("=" * 50)
-
-    logger.info(
-        "🚀 تشغيل بوت مشاوير جدة..."
-    )
-
-    logger.info(
-        f"📌 GROUP_ID الحالي = {GROUP_ID}"
-    )
-
-    logger.info(
-        f"📌 ADMIN_IDS = {ADMIN_IDS}"
-    )
-
-    logger.info("=" * 50)
+    logger.info("=" * 60)
+    logger.info("🚀 تشغيل بوت مشاوير جدة")
+    logger.info(f"📌 GROUP_ID = {GROUP_ID}")
+    logger.info(f"📌 ADMIN_IDS = {ADMIN_IDS}")
+    logger.info("=" * 60)
 
     application.run_polling(
         allowed_updates=Update.ALL_TYPES,
