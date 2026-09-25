@@ -1,15 +1,16 @@
 """
-🤖 بوت مشاوير جدة - النسخة النهائية الشاملة
+🤖 بوت مشاوير جدة - النسخة النهائية الشاملة (محدثة)
 - دمج جميع أحياء جدة (أكثر من 300 حي ومنطقة).
+- إضافة نظام مكافحة الإزعاج (5 رسائل في 10 ثواني = كتم).
+- إضافة زر "إلغاء الكتم" للمشرفين.
 - الحفاظ على جميع الميزات السابقة والإصلاحات.
-- دعم "شبكة الأمان" للمواقع غير المدرجة.
-- زر "جاهز" يرسل إشعار فقط (لا يغلق المشوار).
 """
 
 import os
 import re
 import logging
 import sqlite3
+import time
 
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -38,6 +39,10 @@ ALLOWED_GROUP_LINK = "t.me/JeddahRidesGroup"
 SAUDI_TZ = ZoneInfo("Asia/Riyadh")
 DB_FILE = "smart_rides.db"
 
+# إعدادات مكافحة الإزعاج
+SPAM_TIME_WINDOW = 10  # بالثواني
+SPAM_MESSAGE_LIMIT = 5  # عدد الرسائل المسموح بها في النافذة الزمنية
+
 # ============================================================
 # 📋 رسالة الترحيب
 # ============================================================
@@ -62,10 +67,11 @@ WELCOME_TEXT = f"""
 ━━━━━━━━━━━━━━━━━━
 🚫 <b>مهم:</b>
 ممنوع «خاص» / أرقام الجوال / الروابط الخارجية.
+ممنوع الإزعاج وتكرار الرسائل.
 """
 
 # ============================================================
-# 📚 الكلمات والقوائم (شاملة جميع أحياء جدة والمناطق الفرعية)
+# 📚 الكلمات والقوائم
 # ============================================================
 MONTHLY_TRIP_WORDS = [
     "شهري", "شهرية", "شهريه", "شهريا", "بالشهر", "دوام", "مدرسه",
@@ -122,9 +128,6 @@ LOCATIONS_SET = {
     "الواحه", "الروضه", "السامر", "العدل", "الوادي", "النهضه", "السلام",
     "المرجان", "الصالحيه", "بني مالك", "الرحيلي", "المدائن", "الروابي",
     "الضاحيه", "المنتزهات", "السد",
-
-    # ====================== غرب جدة (الغربية) ======================
-    # (تتداخل مع أحياء الوسط والساحل)
 
     # ====================== وسط جدة (الوسطى) ======================
     "الرحاب", "العزيزية", "مشرفة", "بني مالك", "النسيم", "الورود", "الشرفية",
@@ -205,12 +208,6 @@ class Database:
         self.conn.execute("UPDATE users SET role = ? WHERE user_id = ?", (role, user_id))
         self.conn.commit()
 
-    def get_role(self, user_id):
-        cur = self.conn.cursor()
-        cur.execute("SELECT role FROM users WHERE user_id = ?", (user_id,))
-        row = cur.fetchone()
-        return row["role"] if row else ""
-
     def is_banned(self, user_id):
         cur = self.conn.cursor()
         cur.execute("SELECT until_date FROM banned_users WHERE user_id = ?", (user_id,))
@@ -231,6 +228,10 @@ class Database:
             ON CONFLICT(user_id) DO UPDATE SET
                 reason = excluded.reason, until_date = excluded.until_date
         """, (user_id, reason, until, datetime.now(SAUDI_TZ).isoformat()))
+        self.conn.commit()
+
+    def unban_user(self, user_id):
+        self.conn.execute("DELETE FROM banned_users WHERE user_id = ?", (user_id,))
         self.conn.commit()
 
     def create_trip(self, message_id, customer_id, customer_name,
@@ -327,6 +328,7 @@ class SmartRidesBot:
         self.db = Database()
         self.pending_trips = {}
         self.welcomed_members = set()
+        self.user_message_times = {}  # لتتبع رسائل المستخدمين ومنع الإزعاج
 
     def normalize_text(self, text):
         if not text:
@@ -484,23 +486,36 @@ class SmartRidesBot:
         user = update.effective_user
         if not message or not user or user.id in ADMIN_IDS:
             return
+
         count = self.db.add_violation(user.id, reason)
         await self.delete_message(message)
+
         if count == 1:
             text = (f"⚠️ <b>تنبيه</b>\n\nيا {self.html(user.first_name)}، "
                     f"تم تسجيل المخالفة الأولى.\nالسبب: {self.html(reason)}")
+            reply_markup = None
         elif count == 2:
             text = (f"⚠️ <b>تحذير أخير</b>\n\nيا {self.html(user.first_name)}، "
                     f"تم تسجيل المخالفة الثانية.\n⚠️ الثالثة = كتم 24 ساعة.")
+            reply_markup = None
         else:
-            text = f"🚫 <b>تم كتمك لمدة 24 ساعة</b>\n\nالسبب: {self.html(reason)}"
+            text = (f"🚫 <b>تم كتمك لمدة 24 ساعة</b>\n\n"
+                    f"👤 المستخدم: {self.html(user.first_name)}\n"
+                    f"السبب: {self.html(reason)}")
+            # إضافة زر إلغاء الكتم للمشرفين فقط
+            reply_markup = InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ إلغاء الكتم (للمشرفين)", callback_data=f"unmute_{user.id}")]
+            ])
+
         try:
             warning = await context.bot.send_message(
-                chat_id=message.chat_id, text=text, parse_mode=ParseMode.HTML)
-            if context.job_queue:
+                chat_id=message.chat_id, text=text,
+                parse_mode=ParseMode.HTML, reply_markup=reply_markup)
+            if count < 3 and context.job_queue:
                 context.job_queue.run_once(self.delete_later, 8, data=warning)
         except Exception as e:
             logger.error(f"خطأ في إرسال التحذير: {e}")
+
         if count >= 3:
             try:
                 await context.bot.restrict_chat_member(
@@ -511,6 +526,41 @@ class SmartRidesBot:
                 self.db.reset_violations(user.id)
             except Exception as e:
                 logger.error(f"خطأ في الكتم: {e}")
+
+    async def handle_unmute(self, update, context):
+        """معالج زر إلغاء الكتم للمشرفين"""
+        query = update.callback_query
+        user = query.from_user
+
+        if user.id not in ADMIN_IDS:
+            await query.answer("❌ هذا الزر مخصص للإدارة فقط.", show_alert=True)
+            return
+
+        try:
+            target_id = int(query.data.split("_")[1])
+        except Exception:
+            await query.answer("❌ حدث خطأ في البيانات.", show_alert=True)
+            return
+
+        try:
+            # رفع الكتم في تيليجرام
+            await context.bot.restrict_chat_member(
+                chat_id=GROUP_ID, user_id=target_id,
+                permissions=ChatPermissions(can_send_messages=True)
+            )
+            # إزالة المستخدم من قائمة الحظر في قاعدة البيانات
+            self.db.unban_user(target_id)
+            
+            await query.answer("✅ تم إلغاء الكتم بنجاح.", show_alert=True)
+            await query.message.edit_text(
+                f"✅ <b>تم إلغاء الكتم</b>\n\n"
+                f"👤 المستخدم: <code>{target_id}</code>\n"
+                f"👮 بواسطة المشرف: {self.html(user.first_name)}",
+                parse_mode=ParseMode.HTML
+            )
+        except Exception as e:
+            logger.error(f"خطأ في إلغاء الكتم: {e}")
+            await query.answer(f"❌ فشل إلغاء الكتم: {e}", show_alert=True)
 
     async def send_welcome(self, context, member):
         if member.id in self.welcomed_members:
@@ -736,6 +786,26 @@ class SmartRidesBot:
         text = message.text or message.caption or ""
         if not text.strip():
             return
+
+        # ====================================================
+        # 🛡️ نظام مكافحة الإزعاج (Anti-Flood)
+        # ====================================================
+        now = time.time()
+        times = self.user_message_times.get(user.id, [])
+        # الاحتفاظ فقط بالرسائل التي أُرسلت خلال النافذة الزمنية المحددة
+        times = [t for t in times if now - t < SPAM_TIME_WINDOW]
+        times.append(now)
+        self.user_message_times[user.id] = times
+
+        # إذا تجاوز عدد الرسائل الحد المسموح به
+        if len(times) > SPAM_MESSAGE_LIMIT:
+            self.user_message_times[user.id] = []  # تصفير العداد لمنع التكرار
+            await self.issue_violation(
+                update, context,
+                "إرسال رسائل متكررة بسرعة (إزعاج)"
+            )
+            return
+
         logger.info(f"🔥 رسالة | USER={user.id} | TEXT={text}")
         self.db.save_user(user)
         if self.db.is_banned(user.id):
@@ -870,6 +940,8 @@ def main():
                                                  pattern=r"^customer_contact:"))
     application.add_handler(CallbackQueryHandler(bot_instance.handle_close_trip,
                                                  pattern=r"^close_trip:"))
+    application.add_handler(CallbackQueryHandler(bot_instance.handle_unmute,
+                                                 pattern=r"^unmute_"))
     application.add_handler(CallbackQueryHandler(bot_instance.handle_callback_buttons,
                                                  pattern=r"^btn_"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,
