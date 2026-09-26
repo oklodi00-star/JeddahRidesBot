@@ -1,16 +1,23 @@
 """
-🤖 بوت مشاوير جدة - النسخة النهائية الشاملة (محدثة)
-- دمج جميع أحياء جدة (أكثر من 300 حي ومنطقة).
-- إضافة نظام مكافحة الإزعاج (5 رسائل في 10 ثواني = كتم).
-- إضافة زر "إلغاء الكتم" للمشرفين.
-- الحفاظ على جميع الميزات السابقة والإصلاحات.
+🤖 بوت مشاوير جدة - النسخة النهائية المتكاملة
+(دمج الكود القديم + إصلاحات الكود الجديد)
+
+المميزات:
+✅ طلب المشوار + طلب المواقع الناقصة
+✅ كشف التواجد (مرة واحدة يومياً)
+✅ زر "جاهز" + الرد النصي "جاهز" على المشوار
+✅ فلترة الأرقام + كلمة خاص + الروابط
+✅ نظام مخالفات (3 = كتم 24 ساعة) مع تصفير تلقائي
+✅ ترحيب الأعضاء الجدد + أزرار تحديد الدور
+✅ /chatid + /mybots
+✅ منع تكرار المواقع (الوزيرية/الوزيريه)
+✅ إزالة التطويل (ـ) قبل التحليل
 """
 
 import os
 import re
 import logging
 import sqlite3
-import time
 
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -39,9 +46,6 @@ ALLOWED_GROUP_LINK = "t.me/JeddahRidesGroup"
 SAUDI_TZ = ZoneInfo("Asia/Riyadh")
 DB_FILE = "smart_rides.db"
 
-# إعدادات مكافحة الإزعاج
-SPAM_TIME_WINDOW = 10  # بالثواني
-SPAM_MESSAGE_LIMIT = 5  # عدد الرسائل المسموح بها في النافذة الزمنية
 
 # ============================================================
 # 📋 رسالة الترحيب
@@ -67,11 +71,11 @@ WELCOME_TEXT = f"""
 ━━━━━━━━━━━━━━━━━━
 🚫 <b>مهم:</b>
 ممنوع «خاص» / أرقام الجوال / الروابط الخارجية.
-ممنوع الإزعاج وتكرار الرسائل.
 """
 
+
 # ============================================================
-# 📚 الكلمات والقوائم
+# 📚 الكلمات
 # ============================================================
 MONTHLY_TRIP_WORDS = [
     "شهري", "شهرية", "شهريه", "شهريا", "بالشهر", "دوام", "مدرسه",
@@ -80,7 +84,7 @@ MONTHLY_TRIP_WORDS = [
 ]
 
 NORMAL_TRIP_WORDS = [
-    "مشوار", "مشاوير", "توصيل", "توصيله", "يوصلني",
+    "مشوار", "مشاوير", "توصيل", "توصيله", "توصيله", "يوصلني",
     "يوديني", "ابغى مشوار", "ابي مشوار", "ابغا مشوار",
     "احتاج توصيل", "محتاج توصيل", "من يوصلني", "اوصلني",
     "ودني", "خذني", "ابي اروح", "ابغى اروح", "ابغا اروح",
@@ -91,66 +95,17 @@ PRESENCE_QUESTION_WORDS = [
     "الموجود", "موجود",
 ]
 
-# القائمة الشاملة لأحياء جدة (أكثر من 300 حي ومنطقة فرعية)
+# المواقع بصيغة مطبعة (بدون تكرار)
 LOCATIONS_SET = {
-    # ====================== شمال جدة (الشمالية) ======================
-    "الاصالة", "ابحر الشمالية", "ابحر الجنوبية", "الفردوس", "الشراع", "الامواج",
-    "الصواري", "الياقوت", "اللؤلؤ", "مطار الملك عبدالعزيز", "الزمرد", "المنارات",
-    "الفنار", "البحيرات", "النور", "المروج", "الخليج", "النجمة", "الزهور",
-    "الغربية", "الشويضي", "الغدير", "الربيع", "العقيق", "العبير", "الدرة",
-    "طابة", "المجامع", "المزيرعة", "الفرقان", "اليسر", "الجزيرة", "الكورنيش",
-    "المعرفة", "الودية", "الشاطئ", "الحمراء", "الاندلس", "الروضة", "الخالدية",
-    "الزهراء", "السلامة", "النهضة", "النعيم", "المحمدية", "البساتين", "المرجان",
-    "الصفا", "ابحر", "الشعيبة", "ذهبان", "الخمرة", "ثول", "طيبة",
-    "الرحيلي", "ذهبان الشرقي", "ذهبان الغربي", "خليج سلمان", "بالبيد",
-    "الحرازات الشمالية", "الحرازات الجنوبية", "الحرازات", "الفضيله", "الرغامه",
-    "السنابل", "التيسير", "تيسير", "الصاله", "النخيل", "الحمراء", "المروه",
-    "الربوه", "النزهه", "المشرفه", "الفيحاء", "الصناعيه", "الشماليه", "الشرقيه",
-    "الجنوبيه", "الغربيه", "أبحر الشمالية", "أبحر الجنوبية", "الخمرة", "مكه",
-    "جده", "الجموم", "بحرة", "الليث", "عسفان", "خليص", "رابغ",
-
-    # ====================== شرق جدة (الشرقية) ======================
-    "التوفيق", "المودة", "البيان", "الندى", "الوداد", "الصفوة", "الشناء",
-    "الغولاء", "المحمر", "الصفحة", "البدور", "الوفاء", "الرياض", "الفروسية",
-    "الحجاز", "الرحمانية", "البشائر", "الفلاح", "الصالحية", "الحمدانية",
-    "ام حبلين الشرقية", "الكوثر", "ام حبلين الغربية", "الريان", "الرواسي",
-    "التلال", "بريمان", "العسلاء", "المنتزة", "الاجواد", "المنار", "السامر",
-    "الحفنة", "الشروق", "الواحة", "مريخ", "النخيل", "القوس", "الرغامة",
-    "ام السلم", "المنتزهات", "كنانة", "قبا", "الهزاعية", "العشيرية",
-    "الشرقية", "المجد", "رضوى", "البوادر", "ام سدرة", "الهجرة", "العويجاء",
-    "الشرائع", "سليته", "المرج", "الشمائل", "البهجة", "المعيلية", "الحرة",
-    "العلاء", "الوسامي", "جوهرة ثول", "السلطان", "مخطط واسكان المطار",
-    "جامعة جدة", "أبرق الرغامة", "الكرامة", "الرحمة", "البركة", "القرينية",
-    "الضاحية", "المليساء", "السرورية", "القوزين", "الوادي", "الساحل",
-    "الرابية", "المرسى", "الصناعية الثانية", "الصناعية الثالثة", "العسيلة",
-    "الرهناء", "المستقبل", "القاعدة البحرية", "النسيم", "النعيم", "الفيصليه",
-    "الرحاب", "البوادي", "الحمدانيه", "الخالديه", "السلامه", "النزهه",
-    "الواحه", "الروضه", "السامر", "العدل", "الوادي", "النهضه", "السلام",
-    "المرجان", "الصالحيه", "بني مالك", "الرحيلي", "المدائن", "الروابي",
-    "الضاحيه", "المنتزهات", "السد",
-
-    # ====================== وسط جدة (الوسطى) ======================
-    "الرحاب", "العزيزية", "مشرفة", "بني مالك", "النسيم", "الورود", "الشرفية",
-    "الرويس", "السليمانية", "الفيحاء", "الكندرة", "البغدادية", "جدة التاريخية",
-    "البلد", "النزهة", "المروة", "الربوة", "البوادي", "الفيصلية", "الثعالبة",
-    "المحمدية", "السنابل", "الهنداوية", "غليل", "الصحيفة", "العمارية",
-    "البغدادية الغربية", "السبيل", "النزلة اليمانية", "النزلة الشرقية",
-    "القريات", "قويزة", "الجامعة", "الثغر", "الفاروق", "مدائن الفهد",
-    "الحجاز", "الشرفيه", "المظلوم", "الرويس", "السبيل", "العماريه",
-    "الثغر", "البغداديه", "الهنداويه", "الصحيفه", "الوزيريه", "القرينيه",
-    "الكندره", "بنى مالك", "الثعالبه", "القوز", "الرحمانيه", "السليمانيه",
-    "البساتين", "السناعيه",
-
-    # ====================== جنوب جدة (الجنوبية) ======================
-    "الروابي", "الجامعة", "الثغر", "النزلة الشرقية", "الثعالبة", "الفاروق",
-    "مدائن الفهد", "النزلة اليمانية", "القريات", "غليل", "بترومين", "الوزيرية",
-    "الجوهرة", "الامير عبدالمجيد", "الاجاويد", "الشفا", "الهدا", "السنابل",
-    "الاثير", "ابو جعالة", "العسلية", "المستقبل", "السهل", "التضامن",
-    "التعاون", "الخمرة", "المحجر", "السرور", "السروات", "الكرامة", "الفضيلة",
-    "القرينية", "الضاحية", "الوادي", "الساحل", "الرحمة", "البركة", "المسرة",
-    "المليساء", "القوزين", "الرابية", "المرسى", "الرمال", "الموج",
-    "الامير فواز الجنوبي", "كيلو 14 الجنوبي", "المنار", "الفلاح", "العدل",
-    "السروات", "الشعيبة", "القحمة", "المظلوم", "بني مالك",
+    "الحرازات الشمالية", "الحرازات الجنوبية", "الاندلس مول",
+    "الفضيله", "الرغامه", "الخمره", "الوزيريه", "السنابل", "التيسير",
+    "تيسير", "الحرازات", "النسيم", "الاندلس", "الصناعيه", "الزهراء",
+    "النخيل", "الصالحيه", "الروضه", "الصفا", "المروه", "الجامعه",
+    "الحمراء", "الربوه", "النزهه", "المشرفه", "بني مالك", "الحمدانيه",
+    "المحمديه", "الخالديه", "النعيم", "السلامه", "الشاطئ", "ابحر",
+    "التوفيق", "العدل", "المنار", "الواحه", "الفيصليه", "الريان",
+    "الوادي", "الفلاح", "النهضه", "الرابيه", "السلام", "المرجان",
+    "الكورنيش", "الصاله", "الفيحاء", "مكه", "جده",
 }
 
 TO_WORDS_PATTERN = r"(?:الى|الي|الين|لين|الا|ل|to)"
@@ -159,6 +114,7 @@ GREETINGS = [
     "السلام عليكم", "سلام عليكم", "السلام", "سلام",
     "صباح الخير", "مساء الخير", "هلا", "اهلا", "مرحبا",
 ]
+
 
 # ============================================================
 # 💾 قاعدة البيانات
@@ -228,10 +184,6 @@ class Database:
             ON CONFLICT(user_id) DO UPDATE SET
                 reason = excluded.reason, until_date = excluded.until_date
         """, (user_id, reason, until, datetime.now(SAUDI_TZ).isoformat()))
-        self.conn.commit()
-
-    def unban_user(self, user_id):
-        self.conn.execute("DELETE FROM banned_users WHERE user_id = ?", (user_id,))
         self.conn.commit()
 
     def create_trip(self, message_id, customer_id, customer_name,
@@ -320,20 +272,21 @@ class Database:
         """, (user_id, location, today, datetime.now(SAUDI_TZ).isoformat()))
         self.conn.commit()
 
+
 # ============================================================
 # 🤖 البوت
 # ============================================================
 class SmartRidesBot:
     def __init__(self):
         self.db = Database()
-        self.pending_trips = {}
+        self.pending_trips = {}  # user_id -> {type, pickup, destination}
         self.welcomed_members = set()
-        self.user_message_times = {}  # لتتبع رسائل المستخدمين ومنع الإزعاج
 
+    # ---------- أدوات النص ----------
     def normalize_text(self, text):
         if not text:
             return ""
-        text = str(text).lower().replace("ـ", "")
+        text = str(text).lower().replace("ـ", "")  # إزالة التطويل
         for old, new in {"أ": "ا", "إ": "ا", "آ": "ا", "ى": "ي",
                          "ة": "ه", "ؤ": "و", "ئ": "ي"}.items():
             text = text.replace(old, new)
@@ -350,6 +303,7 @@ class SmartRidesBot:
             cleaned = re.sub(re.escape(g), " ", cleaned, flags=re.IGNORECASE)
         return re.sub(r"\s+", " ", cleaned).strip()
 
+    # ---------- الفلاتر ----------
     def contains_phone_number(self, text):
         if not text:
             return False
@@ -377,10 +331,13 @@ class SmartRidesBot:
             return True
         return False
 
+    # ---------- استخراج المسار ----------
     def extract_route(self, text):
         if not text:
             return None, None
         normalized = self.normalize_text(text)
+
+        # النمط 1: "من X إلى Y"
         m = re.search(rf"من\s+(.+?)\s+{TO_WORDS_PATTERN}\s+(.+)", normalized)
         if m:
             p = re.sub(r"[.!،,؟?]+$", "", m.group(1).strip()).strip()
@@ -388,12 +345,16 @@ class SmartRidesBot:
             d = re.sub(r"\s+(?:الساعه|الساعة|بعد|قبل)\s+.*$", "", d).strip()
             if p and d:
                 return p, d
+
+        # النمط 2: "X إلى Y" بدون "من"
         m = re.search(rf"^(.+?)\s+{TO_WORDS_PATTERN}\s+(.+)", normalized)
         if m:
             p = re.sub(r"[.!،,؟?]+$", "", m.group(1).strip()).strip()
             d = re.sub(r"[.!،,؟?]+$", "", m.group(2).strip()).strip()
             if p and d:
                 return p, d
+
+        # نمط 3: البحث في قائمة المواقع (بدون تكرار)
         found = []
         seen = set()
         for loc in sorted(LOCATIONS_SET, key=lambda x: len(self.normalize_text(x)), reverse=True):
@@ -401,24 +362,30 @@ class SmartRidesBot:
             if nloc in normalized and nloc not in seen:
                 seen.add(nloc)
                 found.append(loc)
+
         if len(found) >= 2:
             return found[0], found[1]
         return None, None
 
+    # ---------- كشف المشوار ----------
     def detect_trip(self, text):
         clean = self.strip_greetings(text)
         normalized = self.normalize_text(clean)
         pickup, dest = self.extract_route(clean)
+
         has_intent = any(self.normalize_text(w) in normalized
                          for w in (NORMAL_TRIP_WORDS + MONTHLY_TRIP_WORDS))
         has_route = bool(pickup and dest)
         if re.search(rf"من\s+.+?\s+{TO_WORDS_PATTERN}\s+.+", normalized):
             has_route = True
+
         if not has_intent and not has_route:
             return None, None, None
+
         monthly = any(self.normalize_text(w) in normalized for w in MONTHLY_TRIP_WORDS)
         return ("monthly" if monthly else "normal"), pickup, dest
 
+    # ---------- كشف التواجد ----------
     def detect_presence(self, text):
         if not text:
             return None
@@ -443,12 +410,12 @@ class SmartRidesBot:
         if not any(re.search(p, normalized) for p in patterns):
             return None
 
-        # 1. البحث في القائمة الضخمة
+        # البحث عن موقع معروف
         for loc in sorted(LOCATIONS_SET, key=lambda x: len(self.normalize_text(x)), reverse=True):
             if self.normalize_text(loc) in normalized:
                 return loc
 
-        # 2. البحث عن "في X" أو "عند X"
+        # محاولة استخراج من "في X" أو "عند X"
         for pattern in [r"(?:في|عند)\s+([^\s،,.!?؟]+)"]:
             m = re.search(pattern, normalized)
             if m:
@@ -456,19 +423,9 @@ class SmartRidesBot:
                 if self.normalize_text(w) in {self.normalize_text(x) for x in LOCATIONS_SET}:
                     return w
 
-        # 3. شبكة الأمان: الالتقاط الذكي لأي موقع ملتصق بـ "بال" أو "ب"
-        match_ba = re.search(r"(?:متواجد|متواجده|متواجدين|متوفر|متوفره|متاح|متاحه|واقف|واقفه)\s+(?:بال|ب)([^\s،,.!?؟]+)", normalized)
-        if match_ba:
-            loc = match_ba.group(1).strip()
-            excluded_words = {
-                "روح", "روحه", "سرعه", "خدمتك", "خدمتكم", "مشوار", "مشاوير", 
-                "اي", "وقت", "ساعه", "يوم", "بكره", "خير", "عافيه", "صحه", "سلامه"
-            }
-            if self.normalize_text(loc) not in excluded_words:
-                return loc
-
         return ""
 
+    # ---------- حذف ----------
     async def delete_message(self, message):
         try:
             await message.delete()
@@ -481,6 +438,7 @@ class SmartRidesBot:
         except Exception:
             pass
 
+    # ---------- مخالفة ----------
     async def issue_violation(self, update, context, reason):
         message = update.effective_message
         user = update.effective_user
@@ -493,25 +451,16 @@ class SmartRidesBot:
         if count == 1:
             text = (f"⚠️ <b>تنبيه</b>\n\nيا {self.html(user.first_name)}، "
                     f"تم تسجيل المخالفة الأولى.\nالسبب: {self.html(reason)}")
-            reply_markup = None
         elif count == 2:
             text = (f"⚠️ <b>تحذير أخير</b>\n\nيا {self.html(user.first_name)}، "
                     f"تم تسجيل المخالفة الثانية.\n⚠️ الثالثة = كتم 24 ساعة.")
-            reply_markup = None
         else:
-            text = (f"🚫 <b>تم كتمك لمدة 24 ساعة</b>\n\n"
-                    f"👤 المستخدم: {self.html(user.first_name)}\n"
-                    f"السبب: {self.html(reason)}")
-            # إضافة زر إلغاء الكتم للمشرفين فقط
-            reply_markup = InlineKeyboardMarkup([
-                [InlineKeyboardButton("✅ إلغاء الكتم (للمشرفين)", callback_data=f"unmute_{user.id}")]
-            ])
+            text = f"🚫 <b>تم كتمك لمدة 24 ساعة</b>\n\nالسبب: {self.html(reason)}"
 
         try:
             warning = await context.bot.send_message(
-                chat_id=message.chat_id, text=text,
-                parse_mode=ParseMode.HTML, reply_markup=reply_markup)
-            if count < 3 and context.job_queue:
+                chat_id=message.chat_id, text=text, parse_mode=ParseMode.HTML)
+            if context.job_queue:
                 context.job_queue.run_once(self.delete_later, 8, data=warning)
         except Exception as e:
             logger.error(f"خطأ في إرسال التحذير: {e}")
@@ -523,45 +472,11 @@ class SmartRidesBot:
                     permissions=ChatPermissions(can_send_messages=False),
                     until_date=datetime.now(SAUDI_TZ) + timedelta(hours=24))
                 self.db.ban_user(user.id, reason, hours=24)
-                self.db.reset_violations(user.id)
+                self.db.reset_violations(user.id)  # تصفير العداد بعد الكتم
             except Exception as e:
                 logger.error(f"خطأ في الكتم: {e}")
 
-    async def handle_unmute(self, update, context):
-        """معالج زر إلغاء الكتم للمشرفين"""
-        query = update.callback_query
-        user = query.from_user
-
-        if user.id not in ADMIN_IDS:
-            await query.answer("❌ هذا الزر مخصص للإدارة فقط.", show_alert=True)
-            return
-
-        try:
-            target_id = int(query.data.split("_")[1])
-        except Exception:
-            await query.answer("❌ حدث خطأ في البيانات.", show_alert=True)
-            return
-
-        try:
-            # رفع الكتم في تيليجرام
-            await context.bot.restrict_chat_member(
-                chat_id=GROUP_ID, user_id=target_id,
-                permissions=ChatPermissions(can_send_messages=True)
-            )
-            # إزالة المستخدم من قائمة الحظر في قاعدة البيانات
-            self.db.unban_user(target_id)
-            
-            await query.answer("✅ تم إلغاء الكتم بنجاح.", show_alert=True)
-            await query.message.edit_text(
-                f"✅ <b>تم إلغاء الكتم</b>\n\n"
-                f"👤 المستخدم: <code>{target_id}</code>\n"
-                f"👮 بواسطة المشرف: {self.html(user.first_name)}",
-                parse_mode=ParseMode.HTML
-            )
-        except Exception as e:
-            logger.error(f"خطأ في إلغاء الكتم: {e}")
-            await query.answer(f"❌ فشل إلغاء الكتم: {e}", show_alert=True)
-
+    # ---------- ترحيب ----------
     async def send_welcome(self, context, member):
         if member.id in self.welcomed_members:
             return
@@ -570,6 +485,7 @@ class SmartRidesBot:
             self.db.save_user(member)
         except Exception as e:
             logger.error(f"فشل حفظ المستخدم: {e}")
+
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton(f"👤 {member.first_name} عميل",
                                   callback_data=f"btn_customer:{member.id}"),
@@ -595,6 +511,7 @@ class SmartRidesBot:
             if not u.is_bot:
                 await self.send_welcome(context, u)
 
+    # ---------- التواجد ----------
     async def handle_presence(self, update, context, location):
         message, user = update.effective_message, update.effective_user
         self.db.save_user(user)
@@ -609,10 +526,12 @@ class SmartRidesBot:
             f"📍 الموقع: {self.html(location)}",
             parse_mode=ParseMode.HTML)
 
+    # ---------- إنشاء مشوار ----------
     async def handle_trip(self, update, context, trip_type, pickup, destination):
         message, user = update.effective_message, update.effective_user
         self.db.save_user(user)
         self.db.set_role(user.id, "customer")
+
         if not pickup or not destination:
             self.pending_trips[user.id] = {
                 "type": trip_type, "pickup": pickup, "destination": destination}
@@ -627,11 +546,13 @@ class SmartRidesBot:
                      f"📍 الانطلاق: {self.html(pickup)}")
             await message.reply_text(q, parse_mode=ParseMode.HTML)
             return
+
         trip_id = self.db.create_trip(
             message_id=message.message_id, customer_id=user.id,
             customer_name=user.first_name or "العميل",
             pickup=pickup, destination=destination,
             trip_type=trip_type, original_text=message.text or "")
+
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("🚕 جاهز", callback_data=f"take_trip:{trip_id}")],
             [InlineKeyboardButton("📩 التواصل مع الكابتن",
@@ -646,6 +567,7 @@ class SmartRidesBot:
             f"🏁 إلى: {self.html(destination)}",
             parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
+    # ---------- جاهز (موحدة) ----------
     async def process_take_trip(self, context, user, trip, from_query=None):
         if user.id == trip["customer_id"]:
             if from_query:
@@ -653,6 +575,7 @@ class SmartRidesBot:
             return
         self.db.save_user(user)
         self.db.set_role(user.id, "driver")
+
         added = self.db.add_ready_driver(trip["trip_id"], user.id, user.first_name or "الكابتن")
         if not added:
             if from_query:
@@ -660,6 +583,7 @@ class SmartRidesBot:
             return
         if from_query:
             await from_query.answer("✅ تم تسجيل جاهزيتك.", show_alert=True)
+
         try:
             await context.bot.send_message(
                 chat_id=GROUP_ID,
@@ -688,6 +612,7 @@ class SmartRidesBot:
             return
         await self.process_take_trip(context, query.from_user, trip, from_query=query)
 
+    # ---------- تواصل العميل مع الكابتن ----------
     async def handle_customer_contact(self, update, context):
         query = update.callback_query
         try:
@@ -713,6 +638,7 @@ class SmartRidesBot:
         await query.message.reply_text("🚕 اختر الكابتن للتواصل:",
                                        reply_markup=InlineKeyboardMarkup(buttons))
 
+    # ---------- إغلاق المشوار ----------
     async def handle_close_trip(self, update, context):
         query = update.callback_query
         try:
@@ -748,10 +674,12 @@ class SmartRidesBot:
         except Exception as e:
             logger.error(f"خطأ في إشعار الإغلاق: {e}")
 
+    # ---------- أزرار الإدارة ----------
     async def handle_callback_buttons(self, update, context):
         query = update.callback_query
         data = query.data or ""
         user = query.from_user
+
         if data.startswith("btn_customer:") or data.startswith("btn_driver:"):
             role = "customer" if data.startswith("btn_customer:") else "driver"
             if user.id not in ADMIN_IDS:
@@ -774,43 +702,31 @@ class SmartRidesBot:
             except Exception:
                 pass
             return
+
         if data == "btn_complaints":
             await query.answer()
             await query.message.reply_text(f"⚠️ للتواصل مع الإدارة:\n@{ADMIN_USERNAME}")
 
+    # ---------- استقبال الرسائل ----------
     async def handle_message(self, update, context):
         message, user, chat = (update.effective_message, update.effective_user,
                                update.effective_chat)
         if not message or not user or chat.id != GROUP_ID:
             return
+
         text = message.text or message.caption or ""
         if not text.strip():
             return
 
-        # ====================================================
-        # 🛡️ نظام مكافحة الإزعاج (Anti-Flood)
-        # ====================================================
-        now = time.time()
-        times = self.user_message_times.get(user.id, [])
-        # الاحتفاظ فقط بالرسائل التي أُرسلت خلال النافذة الزمنية المحددة
-        times = [t for t in times if now - t < SPAM_TIME_WINDOW]
-        times.append(now)
-        self.user_message_times[user.id] = times
-
-        # إذا تجاوز عدد الرسائل الحد المسموح به
-        if len(times) > SPAM_MESSAGE_LIMIT:
-            self.user_message_times[user.id] = []  # تصفير العداد لمنع التكرار
-            await self.issue_violation(
-                update, context,
-                "إرسال رسائل متكررة بسرعة (إزعاج)"
-            )
-            return
-
         logger.info(f"🔥 رسالة | USER={user.id} | TEXT={text}")
+
         self.db.save_user(user)
+
         if self.db.is_banned(user.id):
             await self.delete_message(message)
             return
+
+        # فلاتر
         if self.contains_phone_number(text):
             await self.issue_violation(update, context, "نشر رقم جوال داخل القروب ممنوع")
             return
@@ -820,10 +736,14 @@ class SmartRidesBot:
         if self.contains_unauthorized_link(text):
             await self.issue_violation(update, context, "نشر الروابط أو الإعلانات الخارجية ممنوع")
             return
+
+        # إلغاء الطلب المعلق
         if user.id in self.pending_trips and text.strip() in ["الغاء", "إلغاء", "كنسل"]:
             del self.pending_trips[user.id]
             await message.reply_text("❌ تم إلغاء الطلب المعلق.")
             return
+
+        # التواجد
         presence = self.detect_presence(text)
         if presence is not None:
             if not presence.strip():
@@ -835,11 +755,15 @@ class SmartRidesBot:
                 return
             await self.handle_presence(update, context, presence)
             return
+
+        # الرد النصي "جاهز"
         if message.reply_to_message and "جاهز" in text.strip():
             trip = self.db.get_trip_by_message_id(message.reply_to_message.message_id)
             if trip and trip["status"] == "active":
                 await self.process_take_trip(context, user, trip)
                 return
+
+        # الطلب المعلق (بانتظار موقع)
         if user.id in self.pending_trips:
             pending = self.pending_trips[user.id]
             new_p, new_d = self.extract_route(text)
@@ -859,12 +783,15 @@ class SmartRidesBot:
                         new_p = found[0]
                     elif not pending["destination"]:
                         new_d = found[0]
+
             pickup = pending["pickup"] or new_p
             destination = pending["destination"] or new_d
+
             if pickup and destination:
                 del self.pending_trips[user.id]
                 await self.handle_trip(update, context, pending["type"], pickup, destination)
                 return
+
             self.pending_trips[user.id] = {
                 "type": pending["type"], "pickup": pickup, "destination": destination}
             if not pickup:
@@ -872,16 +799,21 @@ class SmartRidesBot:
             else:
                 await message.reply_text("🏁 ما زال ناقص: إلى وين رايح؟")
             return
+
+        # طلب مشوار جديد
         trip_type, pickup, destination = self.detect_trip(text)
         if trip_type:
             await self.handle_trip(update, context, trip_type, pickup, destination)
             return
+
+        # التحية
         normalized = self.normalize_text(text).strip()
         for g in GREETINGS:
             if normalized == self.normalize_text(g):
                 await message.reply_text(
                     "وعليكم السلام ورحمة الله وبركاته 🌹\nحياك الله في مشاوير جدة 🚘")
                 return
+
 
 # ============================================================
 # 🌐 أوامر
@@ -896,6 +828,7 @@ async def chat_id_command(update, context):
                 f"📋 النوع: <code>{chat.type}</code>")
     await update.effective_message.reply_text(text, parse_mode=ParseMode.HTML)
 
+
 async def start_command(update, context):
     user = update.effective_user
     bot_instance.db.save_user(user)
@@ -907,6 +840,7 @@ async def start_command(update, context):
     await update.effective_message.reply_text(WELCOME_TEXT, parse_mode=ParseMode.HTML,
                                               reply_markup=keyboard)
 
+
 async def mybots_command(update, context):
     user = update.effective_user
     await update.effective_message.reply_text(
@@ -915,8 +849,10 @@ async def mybots_command(update, context):
         f"📌 معرف القروب: <code>{GROUP_ID}</code>\n✅ البوت يعمل.",
         parse_mode=ParseMode.HTML)
 
+
 async def error_handler(update, context):
     logger.error("❌ حدث خطأ:", exc_info=context.error)
+
 
 # ============================================================
 # 🚀 التشغيل
@@ -927,8 +863,10 @@ def main():
     global bot_instance
     if not TOKEN:
         raise RuntimeError("❌ لم يتم العثور على BOT_TOKEN")
+
     bot_instance = SmartRidesBot()
     application = Application.builder().token(TOKEN).build()
+
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("chatid", chat_id_command))
     application.add_handler(CommandHandler("mybots", mybots_command))
@@ -940,18 +878,19 @@ def main():
                                                  pattern=r"^customer_contact:"))
     application.add_handler(CallbackQueryHandler(bot_instance.handle_close_trip,
                                                  pattern=r"^close_trip:"))
-    application.add_handler(CallbackQueryHandler(bot_instance.handle_unmute,
-                                                 pattern=r"^unmute_"))
     application.add_handler(CallbackQueryHandler(bot_instance.handle_callback_buttons,
                                                  pattern=r"^btn_"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,
                                            bot_instance.handle_message))
     application.add_error_handler(error_handler)
+
     logger.info("=" * 60)
-    logger.info("🚀 تشغيل بوت مشاوير جدة - النسخة النهائية الشاملة")
+    logger.info("🚀 تشغيل بوت مشاوير جدة - النسخة النهائية")
     logger.info("=" * 60)
+
     application.run_polling(allowed_updates=Update.ALL_TYPES,
                             drop_pending_updates=True)
+
 
 if __name__ == "__main__":
     main()
