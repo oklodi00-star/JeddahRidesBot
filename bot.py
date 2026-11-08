@@ -1,13 +1,11 @@
 """
-🤖 بوت مشاوير جدة - النسخة المصححة (v2)
-- «السلام» تُعامل كتحية فقط في بداية الرسالة (لا تكسر حي السلام).
-- «خاص» لا تعطي مخالفة لعبارة مثل «سيارة خاصة».
-- الطلب المعلّق لا يبتلع الرسائل العادية.
-- حي واحد مع «من» أو «إلى» يُلتقط ويُسأل عن الناقص فقط.
-- استثناءات التواجد تعمل بشكل صحيح.
-- «جامعة جدة» لا تحوّل الطلب إلى شهري.
-- فحص روابط دقيق (النطاق + المسار + الروابط المخفية).
-- عرض أسماء الأحياء بالإملاء الأصلي الذي كتبه العضو.
+🤖 بوت مشاوير جدة - النسخة المصححة 2
+- مطابقة الأحياء بحدود الكلمات (بدون تداخل).
+- التحية تُحذف من بداية الرسالة فقط (لا تكسر حي «السلام»).
+- منع الإيجابيات الكاذبة في كشف المشاوير والتواجد والمخالفات.
+- حفظ النص الأصلي للأحياء غير المدرجة (بدون تغيير ة/ى/أ).
+- فحص الروابط بدقة (النطاق + الروابط المخفية).
+- لا يحتاج job-queue لحذف رسائل التحذير.
 """
 
 import os
@@ -42,11 +40,9 @@ GROUP_NAME = "🚘 مشاوير جدة وضواحيها"
 ADMIN_USERNAME = "klodi500"
 ADMIN_IDS = [952638746]
 ALLOWED_GROUP_LINK = "t.me/JeddahRidesGroup"
-ALLOWED_SLUG = ALLOWED_GROUP_LINK.split("/")[-1].lower()
 SAUDI_TZ = ZoneInfo("Asia/Riyadh")
 DB_FILE = "smart_rides.db"
 PENDING_TTL = 600  # مدة انتظار إكمال الطلب الناقص (ثواني)
-WELCOME_COOLDOWN = 120  # منع تكرار الترحيب لنفس العضو (ثواني)
 
 # ============================================================
 # 📋 رسالة الترحيب
@@ -77,17 +73,24 @@ WELCOME_TEXT = f"""
 # ============================================================
 # 🔤 أدوات النصوص
 # ============================================================
-_NORM_MAP = {"أ": "ا", "إ": "ا", "آ": "ا", "ى": "ي", "ة": "ه", "ؤ": "و", "ئ": "ي"}
+_DIAC_RE = re.compile(r"[\u064B-\u065F\u0670\u0640]")  # تشكيل + تطويل
+_NORM_TABLE = str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ى": "ي",
+                             "ة": "ه", "ؤ": "و", "ئ": "ي"})
+
+
+def prep(text):
+    """يرجع (الأصلي منظّفاً، الموحّد) بنفس الطول تماماً لنقل المواضع بينهما."""
+    o = _DIAC_RE.sub("", str(text or ""))
+    n = o.translate(_NORM_TABLE)
+    n = "".join(ch.lower() if len(ch.lower()) == 1 else ch for ch in n)
+    return o, n
 
 
 def norm(text):
     """توحيد النص العربي (همزات، تاء مربوطة، تشكيل...)."""
     if not text:
         return ""
-    text = str(text).lower().replace("ـ", "")
-    for old, new in _NORM_MAP.items():
-        text = text.replace(old, new)
-    return re.sub(r"[\u064B-\u065F\u0670]", "", text)
+    return prep(text)[1]
 
 
 # سوابق مسموحة قبل الكلمة (و، ف، ب، ل، ك، ال)
@@ -120,42 +123,50 @@ GREETINGS = [
     "السلام عليكم", "سلام عليكم", "السلام", "سلام",
     "صباح الخير", "مساء الخير", "هلا", "اهلا", "مرحبا",
 ]
+GREETINGS_NORM = {norm(g) for g in GREETINGS}
 
-# «السلام/سلام» وحدها هي أيضاً اسم حي، فلا تُحذف من وسط النص.
-# تُحذف فقط التحيات الصريحة، وفقط من بداية الرسالة.
-_GREET_PHRASES = [g for g in GREETINGS if norm(g) not in ("السلام", "سلام")]
+# «السلام» و«سلام» المنفردتين تُستثنيان من الحذف لأن «السلام» حي في جدة
+_GREET_PHRASES = [g for g in GREETINGS if g not in ("السلام", "سلام")]
 
 NORMAL_RE = words_re(NORMAL_TRIP_WORDS)
 MONTHLY_RE = words_re(MONTHLY_TRIP_WORDS)
 QUESTION_RE = words_re(PRESENCE_QUESTION_WORDS, prefix=False)
+# التحية تُحذف من بداية الرسالة فقط
 GREETINGS_RE = re.compile(
-    r"^\s*(?:و?(?:"
-    + "|".join(re.escape(norm(g)) for g in sorted(_GREET_PHRASES, key=len, reverse=True))
-    + r")(?!\w)[\s،,.!]*)+")
+    r"و?(?:" + "|".join(re.escape(norm(g)) for g in sorted(_GREET_PHRASES, key=len, reverse=True))
+    + r")(?!\w)")
+_LEAD_RE = re.compile(r"[\s.!،,؟?:؛\-~]*")
 
 STRONG_PRESENCE_RE = re.compile(
     r"(?<!\w)(?:متواجد|متواجده|متواجدين|متوفر|متوفره|متاح|متاحه|بالخدمه)(?!\w)")
 WEAK_PRESENCE_RE = re.compile(r"(?<!\w)(?:انا\s+(?:في|عند)|واقفه?|في\s+الموقع)(?!\w)")
+# «موجود / فاضي»: كابتن يعلن توفره (تُقبل مع حي معروف، ولا تُعتبر تواجداً إن كان فيها طلب مشوار)
+AVAIL_RE = re.compile(r"(?<!\w)(?:موجود|موجوده|موجودين|فاضي|فاضيه|فاضين|فاضيين)(?!\w)")
+# «اي مشوار» = عرض من كابتن وليس طلباً من عميل
+OFFER_RE = re.compile(r"(?<!\w)(?:اي|ايه)\s+(?:مشوار|مشاوير|توصيل)(?!\w)")
 PRESENCE_NET_RE = re.compile(
-    r"(?:متواجد|متواجده|متواجدين|متوفر|متوفره|متاح|متاحه|واقف|واقفه)\s+"
-    r"(?:في\s+|عند\s+|بال|ب)([^\s،,.!?؟]+)")
-PRESENCE_EXCLUDED_RAW = {
+    r"(?:متواجد|متواجده|متواجدين|متوفر|متوفره|متاح|متاحه|واقف|واقفه|موجود|موجوده|موجودين|فاضي|فاضيه)\s+"
+    r"(?:في\s+|عند\s+|بال|ب)((?:حي\s+)?[^\s،,.!?؟]+)")
+_PRESENCE_EXCLUDED_RAW = {
     "روح", "روحه", "سرعه", "خدمتك", "خدمتكم", "الخدمه", "مشوار", "مشاوير",
     "اي", "وقت", "ساعه", "يوم", "بكره", "خير", "عافيه", "صحه", "سلامه",
-    "البيت", "المنزل", "الشغل", "العمل", "السياره", "هنا", "الان",
+    "البيت", "المنزل", "الشغل", "العمل", "السياره",
 }
 
 
-def _strip_pfx(w):
-    """يزيل «ال» أو «ب» من أول الكلمة للمقارنة."""
-    if w.startswith("ال") and len(w) > 2:
+def _strip_pre(w):
+    if w.startswith("ال"):
         return w[2:]
-    if w.startswith("ب") and len(w) > 2:
+    if w.startswith("ب"):
         return w[1:]
     return w
 
 
-PRESENCE_EXCLUDED = {_strip_pfx(w) for w in PRESENCE_EXCLUDED_RAW}
+# نخزن الصيغة كما هي ومعها صيغتها بعد إزالة «ال/ب» لأن الريجكس يأكل «ب/بال»
+PRESENCE_EXCLUDED = set()
+for _w in _PRESENCE_EXCLUDED_RAW:
+    PRESENCE_EXCLUDED.add(_w)
+    PRESENCE_EXCLUDED.add(_strip_pre(_w))
 
 # أحياء جدة ومناطقها (يُكتب كل اسم مرة واحدة، والمطابقة بعد التوحيد)
 _LOCATIONS_RAW = """
@@ -227,71 +238,49 @@ def unique_names(locs):
     return names
 
 
-def remove_locations(normalized):
-    """يحذف مواضع الأحياء من النص (حتى لا تُحسب كلمات مثل «جامعة» من اسم الحي)."""
-    out = normalized
-    for s, e, _ in sorted(find_locations(normalized), reverse=True):
-        out = out[:s] + " " + out[e:]
-    return out
+def remove_spans(text, locs):
+    """يستبدل مواضع الأحياء بمسافات (للحفاظ على الأطوال)."""
+    chars = list(text)
+    for s, e, _ in locs:
+        for i in range(s, e):
+            chars[i] = " "
+    return "".join(chars)
 
 
-_TO_WORDS = ("الي", "الين", "لين", "ل", "to")
-_TO = r"(?:الي|الين|لين|ل|to)"
-EXPLICIT_ROUTE_RE = re.compile(rf"(?<!\w)من\s+(.+?)\s+{_TO}\s+(.+)")
-IMPLICIT_ROUTE_RE = re.compile(rf"^(.+?)\s+{_TO}\s+(.+)$")
+_TO_WORDS = {"الي", "الين", "لين", "لحد", "علي", "ل", "to"}
+# فاصل المسار: «الى/لين/لحد/على/ل» بمسافات، أو شرطة/سهم، أو «ل» ملتصقة (للاندلس)
+_SEP = (r"(?:\s+(?:الي|الين|لين|لحد|علي|ل|to)\s+"
+        r"|\s*[-–—→>]+\s*"
+        r"|\s+(?=ل\S))")
+EXPLICIT_ROUTE_RE = re.compile(rf"(?<!\w)من\s+(.+?){_SEP}(.+)")
+IMPLICIT_ROUTE_RE = re.compile(rf"^(.+?){_SEP}(.+)$")
 _STOP_RE = re.compile(
     r"\s+(?:الساعه|ساعه|بعد|قبل|الان|بكره|بكرا|اليوم|الليله|الصبح|ابغي|ابغا|ابي|"
     r"محتاج|احتاج|مشوار|توصيل|لو|فضلا|الله)(?!\w).*$")
+_PUNCT_EDGE_RE = re.compile(r"^[\s.!،,؟?]+|[\s.!،,؟?]+$")
 _PLACE_STOPWORDS = {"لا", "ايوه", "ايوا", "تمام", "اوكي", "ok", "شكرا", "طيب", "هلا", "نعم"}
-_EDGE_PUNCT = ".,!?؟،:;"
 
 
-def clean_place(seg):
-    seg = _STOP_RE.sub("", (seg or "").strip())
-    return re.sub(r"^[\s.!،,؟?]+|[\s.!،,؟?]+$", "", seg)
+def clean_place(seg_n, seg_o=None):
+    """يقص الجزء الزائد (الساعة، بكره...) ويرجع النص الأصلي إن توفر."""
+    seg_n = seg_n or ""
+    seg_o = seg_n if seg_o is None else seg_o
+    m = _STOP_RE.search(seg_n)
+    end = m.start() if m else len(seg_n)
+    return _PUNCT_EDGE_RE.sub("", seg_o[:end].strip())
 
 
-def pick_place(seg, last):
-    locs = find_locations(seg)
+def pick_place(seg_n, seg_o, last):
+    locs = find_locations(seg_n)
     if locs:
         return (locs[-1] if last else locs[0])[2]
-    words = clean_place(seg).split()
+    words = clean_place(seg_n, seg_o).split()
     if not words:
         return None
     words = words[-3:] if last else words[:3]
+    if not last and len(words[0]) >= 3 and words[0].startswith("ل") and not words[0].startswith("لين"):
+        words[0] = words[0][1:]  # «لحي» / «لمطار» -> نشيل ل الجر الملتصقة
     return " ".join(words)
-
-
-def restore_display(original, place):
-    """يرجع اسم المكان بإملاء العضو الأصلي (قبل التوحيد) إن أمكن."""
-    if not place:
-        return place
-    pw = place.split()
-    if not pw:
-        return place
-    toks = [t.strip(_EDGE_PUNCT) for t in (original or "").split()]
-    toks = [t for t in toks if t]
-    nt = [norm(t) for t in toks]
-    for i in range(len(toks) - len(pw) + 1):
-        if nt[i:i + len(pw)] == pw:
-            return " ".join(toks[i:i + len(pw)])
-    return place
-
-
-def marker_role(n, loc):
-    """يحدد دور حي واحد: «من X» = انطلاق، «إلى/ل X» = وصول، غير ذلك None."""
-    s, e, name = loc
-    seg = n[s:e]
-    key = norm(name)
-    if seg.startswith("لل") or (seg.startswith("ل") and not key.startswith("ل")):
-        return "dest"
-    prev = n[:s].split()[-1:]
-    if prev:
-        if prev[0] == "من":
-            return "pickup"
-        if prev[0] in _TO_WORDS:
-            return "dest"
-    return None
 
 
 # ============================================================
@@ -461,19 +450,21 @@ class Database:
 # ============================================================
 # 🤖 البوت
 # ============================================================
-# أفعال تدل أن «خاص» المقصود بها المراسلة الخاصة
-_DM_VERBS = {"راسلني", "كلمني", "ارسل", "ارسلي", "تواصل", "كلم", "راسل",
-             "ابعث", "ابعثلي", "ارسلني", "كلمنا", "راسلونا", "تعال", "ابشر", "ردي", "رد"}
-_PRIVATE_EXPLICIT = {"بالخاص", "للخاص", "خاصني", "خاصك", "بالخاصه", "للخاصه"}
-_PRIVATE_BARE = {"خاص", "خاصه"}
+_LINK_RE = re.compile(r"https?://\S+|www\.\S+|(?<![\w.@/-])(?:t|telegram)\.me/\S+")
+_ALLOWED_PATH = ALLOWED_GROUP_LINK.lower().split("/", 1)[1]
+_ALLOWED_LINK_RE = re.compile(
+    rf"(?:t\.me|telegram\.me)/{re.escape(_ALLOWED_PATH)}/?(?:\?\S*)?")
+
+# كلمات إذا سبقت «خاص» فالمقصود مشوار/سيارة خاصة وليس مراسلة خاصة
+_PRIVATE_OK_PREV = {"سياره", "مشوار", "توصيل", "توصيله", "رحله", "سواق", "سائق",
+                    "نقل", "مواصلات", "حجز", "كابتن"}
 
 
 class SmartRidesBot:
     def __init__(self):
         self.db = Database()
         self.pending_trips = {}
-        self.welcomed = {}  # user_id -> وقت آخر ترحيب
-        self._tasks = set()
+        self.welcomed_members = set()
 
     # ---------------- أدوات ----------------
     def html(self, text):
@@ -491,9 +482,18 @@ class SmartRidesBot:
         return f"tg://user?id={user_id}"
 
     def strip_greetings(self, text):
-        """يرجع النص موحّداً وبدون التحيات من بداية الرسالة."""
-        cleaned = GREETINGS_RE.sub(" ", norm(text), count=1)
-        return re.sub(r"\s+", " ", cleaned).strip()
+        """يرجع (الأصلي، الموحّد) بعد حذف التحيات من بداية الرسالة فقط."""
+        o, n = prep(text)
+        lead = _LEAD_RE.match(n)
+        o, n = o[lead.end():], n[lead.end():]
+        while True:
+            m = GREETINGS_RE.match(n)
+            if not m:
+                break
+            o, n = o[m.end():], n[m.end():]
+            lead = _LEAD_RE.match(n)
+            o, n = o[lead.end():], n[lead.end():]
+        return o.strip(), n.strip()
 
     def contains_phone_number(self, text):
         if not text:
@@ -506,58 +506,57 @@ class SmartRidesBot:
 
     def contains_private_word(self, text):
         words = re.findall(r"[\w\u0600-\u06FF]+", norm(text))
-        if any(w in _PRIVATE_EXPLICIT for w in words):
-            return True
-        # «خاص» وحدها: مخالفة فقط لو هي الكلمة الوحيدة أو جاءت بعد فعل مراسلة
-        # (حتى لا تُعاقب عبارة مثل «سيارة خاصة» أو «مشوار خاص»)
+        explicit = {"بالخاص", "للخاص", "خاصني", "خاصك", "بالخاصه", "للخاصه"}
         for i, w in enumerate(words):
-            if w in _PRIVATE_BARE:
-                if len(words) == 1 or (i > 0 and words[i - 1] in _DM_VERBS):
-                    return True
+            if w in explicit:
+                return True
+            # «خاص» وحدها = مراسلة خاصة، إلا إذا سبقتها كلمة مثل «مشوار/سيارة»
+            if w == "خاص" and not (i > 0 and words[i - 1] in _PRIVATE_OK_PREV):
+                return True
         return False
 
     @staticmethod
-    def link_allowed(link):
-        l = link.strip().lower().rstrip(").,!؟،")
+    def _link_allowed(link):
+        l = link.strip().lower()
         l = re.sub(r"^https?://", "", l)
         l = re.sub(r"^www\.", "", l)
-        m = re.match(r"^(?:t\.me|telegram\.me|telegram\.dog)/([^/?#]+)", l)
-        return bool(m and m.group(1) == ALLOWED_SLUG)
+        l = l.rstrip(".,!?؟،)]}»\"'")
+        return _ALLOWED_LINK_RE.fullmatch(l) is not None
 
     def contains_unauthorized_link(self, text, message=None):
-        candidates = []
-        if text:
-            candidates += re.findall(
-                r"(?<![\w./@-])(?:https?://|www\.|t\.me/|telegram\.me/|telegram\.dog/)\S+",
-                text, flags=re.I)
-        if message is not None:  # الروابط المخفية خلف نص + الروابط التي تعرّف عليها تيليجرام
+        links = _LINK_RE.findall((text or "").lower())
+        # الروابط المخفية خلف نص + الروابط بدون http داخل الكيانات
+        if message is not None:
             try:
-                ents = {}
-                ents.update(message.parse_entities())
-                ents.update(message.parse_caption_entities())
-                for ent, ent_text in ents.items():
-                    if ent.type == "text_link" and ent.url:
-                        candidates.append(ent.url)
-                    elif ent.type == "url":
-                        candidates.append(ent_text)
-            except Exception as e:
-                logger.warning(f"تعذر فحص entities: {e}")
-        return any(not self.link_allowed(c) for c in candidates)
+                for e in (message.entities or ()):
+                    if e.type == "text_link" and e.url:
+                        links.append(e.url)
+                    elif e.type == "url":
+                        links.append(message.parse_entity(e))
+                for e in (message.caption_entities or ()):
+                    if e.type == "text_link" and e.url:
+                        links.append(e.url)
+                    elif e.type == "url":
+                        links.append(message.parse_caption_entity(e))
+            except Exception as ex:
+                logger.warning(f"تعذر قراءة الكيانات: {ex}")
+        return any(not self._link_allowed(l) for l in links)
 
     # ---------------- كشف الرحلات ----------------
-    def extract_route(self, text, loose=False):
+    def extract_route(self, o, n, loose=False):
         """يرجع (انطلاق، وصول) أو (None, None).
-        loose=True يسمح بالتقاط حيّين من النص بدون «من/إلى» (يُستخدم مع وجود نيّة طلب)."""
-        n = self.strip_greetings(text)
+        o = النص الأصلي، n = الموحّد (بنفس الطول).
+        loose=True يسمح بالتقاط حيّين بدون «من/إلى» (مع وجود نيّة طلب)."""
         m = EXPLICIT_ROUTE_RE.search(n)
         if m:
-            p = pick_place(m.group(1), last=True)
-            d = pick_place(m.group(2), last=False)
+            p = pick_place(m.group(1), o[m.start(1):m.end(1)], last=True)
+            d = pick_place(m.group(2), o[m.start(2):m.end(2)], last=False)
             if p and d:
                 return p, d
         m = IMPLICIT_ROUTE_RE.match(n)
         if m and find_locations(m.group(1)) and find_locations(m.group(2)):
-            return pick_place(m.group(1), True), pick_place(m.group(2), False)
+            return (pick_place(m.group(1), None, True),
+                    pick_place(m.group(2), None, False))
         if loose:
             names = unique_names(find_locations(n))
             if len(names) >= 2:
@@ -565,22 +564,15 @@ class SmartRidesBot:
         return None, None
 
     def detect_trip(self, text):
-        n = self.strip_greetings(text)
+        o, n = self.strip_greetings(text)
         if not n:
             return None, None, None
         locs = find_locations(n)
         normal = bool(NORMAL_RE.search(n))
-        # «جامعة» داخل اسم حي («جامعة جدة») لا تعني مشواراً شهرياً
-        monthly = bool(MONTHLY_RE.search(remove_locations(n)))
+        # «جامعة جدة» حي وليست دليلاً على مشوار شهري: نفحص الشهري بعد حذف الأحياء
+        monthly = bool(MONTHLY_RE.search(remove_spans(n, locs)))
         intent = normal or (monthly and bool(locs))
-        pickup, dest = self.extract_route(n, loose=intent)
-
-        if intent and not (pickup and dest) and len(locs) == 1:
-            role = marker_role(n, locs[0])
-            if role == "pickup":
-                pickup = locs[0][2]
-            elif role == "dest":
-                dest = locs[0][2]
+        pickup, dest = self.extract_route(o, n, loose=intent)
 
         if not intent:
             # بدون كلمة طلب: لازم مسار كامل وأحد طرفيه حي معروف
@@ -588,42 +580,48 @@ class SmartRidesBot:
                 return None, None, None
             if not (find_locations(norm(pickup)) or find_locations(norm(dest))):
                 return None, None, None
+        elif not (pickup and dest) and len(locs) == 1:
+            # حي واحد فقط: نحدد هل هو انطلاق أو وصول من الكلمة قبله
+            s, e, name = locs[0]
+            prev = n[:s].split()[-1:]
+            matched, key = n[s:e], norm(name)
+            if prev == ["من"]:
+                pickup, dest = name, None
+            elif (prev and prev[0] in _TO_WORDS) or (
+                    matched.startswith("ل") and not key.startswith("ل")):
+                pickup, dest = None, name
 
-        pickup = restore_display(text, pickup)
-        dest = restore_display(text, dest)
         return ("monthly" if monthly else "normal"), pickup, dest
 
     def detect_presence(self, text):
         """None = ليست تواجد | "" = تواجد بدون موقع | نص = الموقع."""
         if not text or "؟" in text or "?" in text:
             return None
-        n = self.strip_greetings(text)
+        o, n = self.strip_greetings(text)
         if not n or QUESTION_RE.search(n):
             return None
         strong = STRONG_PRESENCE_RE.search(n)
         weak = WEAK_PRESENCE_RE.search(n)
-        if not strong and not weak:
+        avail = AVAIL_RE.search(n)
+        offer = OFFER_RE.search(n)
+        if not (strong or weak or avail):
             return None
+        n_req = OFFER_RE.sub(" ", n)  # نحذف «اي مشوار» قبل البحث عن نيّة الطلب
 
         locs = find_locations(n)
         if locs:
-            if strong or not NORMAL_RE.search(n):
+            if strong or offer or not NORMAL_RE.search(n_req):
                 return locs[0][2]
             return None
-        if not strong:
+        if not (strong or (avail and offer)):
             return None  # صيغة ضعيفة بدون حي معروف: تجاهل
 
         # شبكة الأمان: حي غير مدرج بعد «متواجد بـ / في»
         m = PRESENCE_NET_RE.search(n)
         if m:
-            loc = m.group(1).strip()
-            if loc and _strip_pfx(loc) not in PRESENCE_EXCLUDED:
-                # نرجع الإملاء الأصلي إن أمكن
-                for t in re.findall(r"[^\s،,.!?؟]+", text):
-                    nt = norm(t)
-                    if nt.endswith(loc) and 0 <= len(nt) - len(loc) <= 3 and len(t) == len(nt):
-                        return t[len(t) - len(loc):]
-                return loc
+            loc_n = m.group(1).strip()
+            if loc_n and loc_n not in PRESENCE_EXCLUDED and _strip_pre(loc_n) not in PRESENCE_EXCLUDED:
+                return o[m.start(1):m.end(1)].strip()
         return ""
 
     # ---------------- حذف / مخالفات ----------------
@@ -633,27 +631,12 @@ class SmartRidesBot:
         except Exception as e:
             logger.warning(f"تعذر حذف الرسالة: {e}")
 
-    async def delete_later(self, context):
+    async def delete_after(self, message, delay):
         try:
-            await context.job.data.delete()
+            await asyncio.sleep(delay)
+            await message.delete()
         except Exception:
             pass
-
-    async def _delayed_delete(self, msg, delay):
-        await asyncio.sleep(delay)
-        try:
-            await msg.delete()
-        except Exception:
-            pass
-
-    def schedule_delete(self, context, msg, delay=8):
-        """يحذف الرسالة بعد مدة (يعمل حتى بدون job-queue)."""
-        if context.job_queue:
-            context.job_queue.run_once(self.delete_later, delay, data=msg)
-        else:
-            task = asyncio.create_task(self._delayed_delete(msg, delay))
-            self._tasks.add(task)
-            task.add_done_callback(self._tasks.discard)
 
     async def issue_violation(self, update, context, reason):
         message = update.effective_message
@@ -685,27 +668,15 @@ class SmartRidesBot:
         try:
             warning = await context.bot.send_message(
                 chat_id=message.chat_id, text=text, parse_mode=ParseMode.HTML)
-            self.schedule_delete(context, warning, 8)
+            context.application.create_task(self.delete_after(warning, 8))
         except Exception as e:
             logger.error(f"خطأ في إرسال التحذير: {e}")
 
     # ---------------- الترحيب ----------------
-    def _recently_welcomed(self, user_id):
-        now = time.time()
-        last = self.welcomed.get(user_id)
-        if last and now - last < WELCOME_COOLDOWN:
-            return True
-        self.welcomed[user_id] = now
-        # تنظيف الذاكرة
-        if len(self.welcomed) > 2000:
-            self.welcomed = {k: v for k, v in self.welcomed.items()
-                             if now - v < WELCOME_COOLDOWN}
-        return False
-
     async def send_welcome(self, context, member):
-        # يمنع التكرار بين chat_member و new_chat_members، ويسمح بالترحيب عند العودة لاحقاً
-        if self._recently_welcomed(member.id):
+        if member.id in self.welcomed_members:
             return
+        self.welcomed_members.add(member.id)
         try:
             self.db.save_user(member)
         except Exception as e:
@@ -730,8 +701,11 @@ class SmartRidesBot:
         if not cm or cm.chat.id != GROUP_ID:
             return
         old, new = cm.old_chat_member.status, cm.new_chat_member.status
+        u = cm.new_chat_member.user
+        if new in ("left", "kicked"):
+            self.welcomed_members.discard(u.id)  # يُرحَّب به من جديد لو رجع
+            return
         if old in ("left", "kicked") and new in ("member", "restricted"):
-            u = cm.new_chat_member.user
             if not u.is_bot:
                 await self.send_welcome(context, u)
 
@@ -769,17 +743,6 @@ class SmartRidesBot:
             return None
         return p
 
-    async def ask_missing(self, message, pickup, destination, detailed=True):
-        if not pickup and not destination:
-            q = ("📍 <b>من وين إلى وين؟</b>\n\nمثال:\n«من الحرازات إلين تيسير»")
-        elif not pickup:
-            q = (f"📍 <b>ما زال ناقص: من وين تنطلق؟</b>\n\n"
-                 f"🏁 الوصول: {self.html(destination)}")
-        else:
-            q = (f"🏁 <b>ما زال ناقص: إلى وين رايح؟</b>\n\n"
-                 f"📍 الانطلاق: {self.html(pickup)}")
-        await message.reply_text(q, parse_mode=ParseMode.HTML)
-
     async def handle_trip(self, update, context, trip_type, pickup, destination):
         message, user = update.effective_message, update.effective_user
         self.db.save_user(user)
@@ -788,7 +751,16 @@ class SmartRidesBot:
             self.pending_trips[user.id] = {
                 "type": trip_type, "pickup": pickup, "destination": destination,
                 "ts": time.time()}
-            await self.ask_missing(message, pickup, destination)
+            if not pickup and not destination:
+                q = ("📍 <b>من وين إلى وين؟</b>\n\nمثال:\n"
+                     "«من الحرازات إلين تيسير»")
+            elif not pickup:
+                q = (f"📍 <b>ما زال ناقص: من وين تنطلق؟</b>\n\n"
+                     f"🏁 الوصول: {self.html(destination)}")
+            else:
+                q = (f"🏁 <b>ما زال ناقص: إلى وين رايح؟</b>\n\n"
+                     f"📍 الانطلاق: {self.html(pickup)}")
+            await message.reply_text(q, parse_mode=ParseMode.HTML)
             return
         trip_id = self.db.create_trip(
             message_id=message.message_id, customer_id=user.id,
@@ -808,68 +780,6 @@ class SmartRidesBot:
             f"📍 من: {self.html(pickup)}\n"
             f"🏁 إلى: {self.html(destination)}",
             parse_mode=ParseMode.HTML, reply_markup=keyboard)
-
-    async def try_complete_pending(self, update, context, pending, text, is_reply_to_bot):
-        """يحاول إكمال طلب ناقص. يرجع True إذا تعامل مع الرسالة، False إذا لا علاقة لها."""
-        message, user = update.effective_message, update.effective_user
-        n = self.strip_greetings(text)
-        old_p, old_d = pending["pickup"], pending["destination"]
-        pickup, destination = old_p, old_d
-
-        new_p, new_d = self.extract_route(text, loose=True)
-        if new_p and new_d:
-            pickup, destination = new_p, new_d
-        else:
-            locs = find_locations(n)
-            names = unique_names(locs)
-            if len(names) >= 2:
-                if not pickup and not destination:
-                    pickup, destination = names[0], names[1]
-                elif not pickup:
-                    pickup = names[0]
-                else:
-                    destination = names[-1]
-            elif len(locs) == 1:
-                name = locs[0][2]
-                role = marker_role(n, locs[0])
-                if role == "pickup":
-                    pickup = name
-                elif role == "dest":
-                    destination = name
-                elif not pickup:
-                    pickup = name
-                else:
-                    destination = name
-            elif is_reply_to_bot:
-                # حي غير مدرج: نقبله فقط لو كان رداً مباشراً على سؤال البوت
-                raw = clean_place(n)
-                if 0 < len(raw.split()) <= 3 and raw not in _PLACE_STOPWORDS:
-                    if not pickup:
-                        pickup = raw
-                    else:
-                        destination = raw
-
-        if pickup != old_p:
-            pickup = restore_display(text, pickup)
-        if destination != old_d:
-            destination = restore_display(text, destination)
-
-        if pickup and destination:
-            del self.pending_trips[user.id]
-            await self.handle_trip(update, context, pending["type"], pickup, destination)
-            return True
-
-        if (pickup, destination) != (old_p, old_d):
-            self.pending_trips[user.id] = {
-                "type": pending["type"], "pickup": pickup,
-                "destination": destination, "ts": time.time()}
-            await self.ask_missing(message, pickup, destination)
-            return True
-
-        if is_reply_to_bot:
-            await self.ask_missing(message, pickup, destination)
-            return True
-        return False  # رسالة عادية لا علاقة لها بالطلب المعلق
 
     async def process_take_trip(self, context, user, trip, from_query=None):
         if user.id == trip["customer_id"]:
@@ -1043,7 +953,7 @@ class SmartRidesBot:
         if not text.strip():
             return
         is_edit = update.edited_message is not None
-        # لا نسجل نص الرسائل (خصوصية)
+        # لا نسجل نص الرسالة حفاظاً على الخصوصية
         logger.info(f"رسالة | USER={user.id} | EDIT={is_edit} | LEN={len(text)}")
 
         self.db.save_user(user)
@@ -1066,6 +976,9 @@ class SmartRidesBot:
         if is_edit:
             return
 
+        rt = message.reply_to_message
+        is_reply_to_bot = bool(rt and rt.from_user and rt.from_user.id == context.bot.id)
+
         # --- إلغاء الطلب المعلق ---
         pending = self.get_pending(user.id)
         if pending and norm(text).strip() in {"الغاء", "كنسل"}:
@@ -1087,18 +1000,55 @@ class SmartRidesBot:
             return
 
         # --- كابتن يقتبس الطلب ويكتب «جاهز» ---
-        if message.reply_to_message and "جاهز" in text:
-            trip = self.db.get_trip_by_message_id(message.reply_to_message.message_id)
+        if rt and "جاهز" in text:
+            trip = self.db.get_trip_by_message_id(rt.message_id)
             if trip and trip["status"] == "active":
                 await self.process_take_trip(context, user, trip)
                 return
 
         # --- إكمال طلب ناقص ---
         if pending:
-            rt = message.reply_to_message
-            is_reply_to_bot = bool(rt and rt.from_user and rt.from_user.id == context.bot.id)
-            if await self.try_complete_pending(update, context, pending, text, is_reply_to_bot):
+            o, n = self.strip_greetings(text)
+            new_p, new_d = self.extract_route(o, n, loose=True)
+            if new_p and new_d:
+                pickup, destination = new_p, new_d
+                got_new = True
+            else:
+                new_p = new_d = None
+                names = unique_names(find_locations(n))
+                single = None
+                if len(names) >= 2:
+                    new_p, new_d = names[0], names[1]
+                elif len(names) == 1:
+                    single = names[0]
+                elif is_reply_to_bot:
+                    # حي غير مدرج: نقبله فقط إذا كان رداً مباشراً على سؤال البوت
+                    raw = clean_place(n, o)
+                    if 0 < len(raw.split()) <= 3 and norm(raw) not in _PLACE_STOPWORDS:
+                        single = raw
+                if single:
+                    if not pending["pickup"]:
+                        new_p = single
+                    else:
+                        new_d = single
+                got_new = bool(new_p or new_d)
+                pickup = pending["pickup"] or new_p
+                destination = pending["destination"] or new_d
+
+            if pickup and destination:
+                del self.pending_trips[user.id]
+                await self.handle_trip(update, context, pending["type"], pickup, destination)
                 return
+            if got_new or is_reply_to_bot:
+                self.pending_trips[user.id] = {
+                    "type": pending["type"], "pickup": pickup,
+                    "destination": destination, "ts": time.time()}
+                if not pickup:
+                    await message.reply_text("📍 ما زال ناقص: من وين تنطلق؟")
+                else:
+                    await message.reply_text("🏁 ما زال ناقص: إلى وين رايح؟")
+                return
+            # رسالة عادية لا علاقة لها بالطلب المعلق: نكمل المعالجة العادية
 
         # --- طلب مشوار جديد ---
         trip_type, pickup, destination = self.detect_trip(text)
@@ -1107,13 +1057,13 @@ class SmartRidesBot:
             return
 
         # --- تحية ---
-        n = re.sub(r"\s+", " ", re.sub(r"[^\w\s]", "", norm(text))).strip()
-        if n in {norm(g) for g in GREETINGS}:
-            if "صباح" in n:
+        core = re.sub(r"\s+", " ", re.sub(r"[^\w\s]", "", norm(text))).strip()
+        if core in GREETINGS_NORM:
+            if "صباح" in core:
                 reply = "صباح النور والسرور ☀️\nحياك الله في مشاوير جدة 🚘"
-            elif "مساء" in n:
+            elif "مساء" in core:
                 reply = "مساء النور والسرور 🌙\nحياك الله في مشاوير جدة 🚘"
-            elif "سلام" in n:
+            elif "سلام" in core:
                 reply = "وعليكم السلام ورحمة الله وبركاته 🌹\nحياك الله في مشاوير جدة 🚘"
             else:
                 reply = "هلا والله 🌹\nحياك الله في مشاوير جدة 🚘"
@@ -1196,7 +1146,7 @@ def main():
     application.add_error_handler(error_handler)
 
     logger.info("=" * 60)
-    logger.info("🚀 تشغيل بوت مشاوير جدة - النسخة المصححة v2")
+    logger.info("🚀 تشغيل بوت مشاوير جدة - النسخة المصححة 2")
     logger.info("=" * 60)
     application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
